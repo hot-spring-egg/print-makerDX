@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>オリジナルプリントメーカーDX（ローカル保存版）</title>
   
-  <!-- Fonts -->
+  <!-- Fonts: Klee One (教科書体に近い手書き風フォント) を読み込み -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
   
   <!-- React & Babel -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -29,7 +29,7 @@
             'mustard': '#F2CC8F'
           },
           fontFamily: {
-            'sans': ['"M PLUS Rounded 1c"', 'sans-serif'],
+            'sans': ['"UD デジタル 教科書体 NP-R"', '"UD デジタル 教科書体 N-R"', '"Klee One"', 'sans-serif'],
           }
         }
       }
@@ -41,26 +41,21 @@
     body {
       background-color: #F4F1DE;
       color: #3D405B;
-      font-family: 'M PLUS Rounded 1c', sans-serif;
     }
 
     /* かきかたプリントのマス目（十字リーダー付き） */
     .kakikata-masu {
-      width: 4rem; /* 約64px */
-      height: 4rem;
+      width: 4.5rem; /* 約72px */
+      height: 4.5rem;
       border: 2px solid #81B29A;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 2.5rem;
-      font-weight: 500;
+      font-size: 3rem;
+      font-weight: 400;
       color: #3D405B;
       background-color: white;
-    }
-    
-    .kakikata-masu.empty {
-      color: transparent;
     }
 
     /* 十字の点線 */
@@ -71,7 +66,7 @@
       left: 0;
       width: 100%;
       height: 0;
-      border-top: 1px dashed rgba(129, 178, 154, 0.5); /* セージグリーンの半透明 */
+      border-top: 1px dashed rgba(129, 178, 154, 0.5);
       z-index: 1;
     }
     .kakikata-masu::after {
@@ -89,10 +84,22 @@
     .kakikata-char {
       z-index: 2;
       position: relative;
-      /* 縦書き特有の記号の向き調整などを一部行う場合はここに追加 */
     }
 
-    /* スクロールバーのカスタマイズ（北欧風） */
+    /* マスの横に表示するルビ（ヒント） */
+    .kakikata-ruby {
+      position: absolute;
+      top: 50%;
+      right: -1.8rem; /* マスの外側右に配置 */
+      transform: translateY(-50%);
+      writing-mode: vertical-rl; /* 縦書き指定 */
+      font-size: 1.1rem;
+      color: #3D405B;
+      letter-spacing: 2px;
+      z-index: 2;
+    }
+
+    /* スクロールバーのカスタマイズ */
     ::-webkit-scrollbar {
       width: 8px;
     }
@@ -123,7 +130,7 @@
         width: 210mm;
         height: 297mm;
         margin: 0;
-        padding: 20mm; /* 余白 */
+        padding: 20mm;
         box-shadow: none;
         background: white;
         page-break-after: always;
@@ -138,33 +145,27 @@
     const { useState, useEffect } = React;
 
     // SVG Icons
-    const SaveIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-    );
-    const PrinterIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-    );
-    const FolderIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-    );
-    const TrashIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-    );
-    const PlusIcon = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-    );
+    const SaveIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>;
+    const PrinterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>;
+    const FolderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>;
+    const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+    const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+    const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+    const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
-    const STORAGE_KEY = 'kakikata_prints_data';
+    const STORAGE_KEY = 'kakikata_prints_data_v3';
 
     const App = () => {
-      // 全てのHooksを関数の先頭で宣言する
       const [title, setTitle] = useState('');
-      const [text, setText] = useState('あいうえお\nかきくけこ');
+      // サンプルテキストを [答え:ヒント] の形に変更
+      const [text, setText] = useState('あいうえお\n[書:か]きくけこ\nがっこうに\n[行:い]きます。');
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
+      
+      // 児童用（解答を隠す） / 先生用（解答を表示）
+      const [hideBlanks, setHideBlanks] = useState(true);
 
-      // 初回マウント時にlocalStorageからデータを読み込む
       useEffect(() => {
         const loadedData = localStorage.getItem(STORAGE_KEY);
         if (loadedData) {
@@ -176,7 +177,6 @@
         }
       }, []);
 
-      // 通知メッセージを一定時間で消す
       useEffect(() => {
         if (notification) {
           const timer = setTimeout(() => setNotification(''), 3000);
@@ -184,7 +184,6 @@
         }
       }, [notification]);
 
-      // 保存処理
       const handleSave = () => {
         if (!title.trim()) {
           alert('プリントのタイトルを入力してください。');
@@ -200,10 +199,8 @@
 
         let updatedPrints;
         if (currentId) {
-          // 上書き更新
           updatedPrints = savedPrints.map(p => p.id === currentId ? newPrint : p);
         } else {
-          // 新規追加
           updatedPrints = [newPrint, ...savedPrints];
           setCurrentId(newPrint.id);
         }
@@ -213,7 +210,6 @@
         setNotification('✨ プリントを保存しました！');
       };
 
-      // 読み込み処理
       const handleLoad = (print) => {
         setTitle(print.title);
         setText(print.text);
@@ -221,9 +217,8 @@
         setNotification(`📂 「${print.title}」をひらきました。`);
       };
 
-      // 削除処理
       const handleDelete = (e, id) => {
-        e.stopPropagation(); // 読み込みイベントの発火を防ぐ
+        e.stopPropagation();
         if (confirm('このプリントを削除してもよろしいですか？')) {
           const updatedPrints = savedPrints.filter(p => p.id !== id);
           setSavedPrints(updatedPrints);
@@ -236,38 +231,58 @@
         }
       };
 
-      // 新規作成
       const handleNew = () => {
         setTitle('');
-        setText('あいうえお\nかきくけこ');
+        setText('あいうえお\n[書:か]きくけこ\nがっこうに\n[行:い]きます。');
         setCurrentId(null);
       };
 
-      // 印刷処理
       const handlePrint = () => {
         window.print();
       };
 
-      // テキストを行ごとに分割（最大7行、各行最大5文字を想定したレイアウト用）
-      // ※今回はプレビュー用として簡単な分割処理を行う
+      // 文章のパース処理: [正解:ヒント] の形を読み取る
       const lines = text.split('\n');
+      const parsedLines = lines.map(line => {
+        const lineCells = [];
+        // [答え:ヒント] または [答え] または その他の1文字 を抽出する正規表現
+        const regex = /\[([^\]:]+)(?::([^\]]+))?\]|([^\[\]])/gu;
+        let match;
+        
+        while ((match = regex.exec(line)) !== null) {
+          if (match[1]) {
+            // [ ] で囲まれた穴埋めの場合
+            lineCells.push({
+              char: match[1], // マスの中に入る文字（答え）
+              ruby: match[2] || '', // コロンの右側（ヒントのルビ）
+              inBlank: true
+            });
+          } else if (match[3]) {
+            // 通常の文字の場合
+            lineCells.push({
+              char: match[3],
+              ruby: '',
+              inBlank: false
+            });
+          }
+        }
+        return lineCells;
+      });
 
       return (
-        <div className="min-h-screen flex flex-col md:flex-row">
+        <div className="min-h-screen flex flex-col md:flex-row font-sans">
           
-          {/* 左側：編集・管理パネル (印刷時は非表示) */}
+          {/* 左側：編集・管理パネル */}
           <div className="w-full md:w-1/3 lg:w-1/4 bg-white shadow-xl z-10 flex flex-col h-screen noprint">
             
-            {/* ヘッダーエリア */}
             <div className="bg-sage text-white p-4 shadow-md">
               <h1 className="text-xl font-bold flex items-center gap-2">
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">ローカル保存・再編集対応版</p>
+              <p className="text-sm mt-1 opacity-90">ルビ・ヒント対応版</p>
             </div>
 
-            {/* 編集フォーム */}
             <div className="p-5 flex-1 overflow-y-auto">
               
               {notification && (
@@ -283,23 +298,38 @@
                     type="text" 
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="例：1ねんせい かんじテスト"
+                    placeholder="例：2ねんせい かんじテスト"
                     className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字</label>
+                  <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
+                  <div className="text-xs text-terracotta mb-2 font-bold bg-terracotta/10 p-2 rounded leading-relaxed">
+                    💡 隠したい文字を [ ] で囲むと空欄になります。<br/>
+                    💡 <b>[答え:ヒント]</b> と入力すると、横に読みがなを出せます。<br/>
+                    （例： 学<b>[校:こう]</b>に行きます）
+                  </div>
                   <textarea 
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    rows="4"
-                    placeholder="練習させたい文字を入力してください。改行で列が変わります。"
-                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none"
+                    rows="6"
+                    placeholder="問題を入力してください。"
+                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none font-sans"
                   ></textarea>
                 </div>
 
-                <div className="flex gap-2">
+                {/* 穴埋め表示切り替えボタン */}
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={() => setHideBlanks(!hideBlanks)}
+                    className={`text-sm px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-colors ${hideBlanks ? 'bg-terracotta text-white' : 'bg-cream text-terracotta border border-terracotta'}`}
+                  >
+                    {hideBlanks ? <><EyeOffIcon /> 児童用（解答を隠す）</> : <><EyeIcon /> 先生用（解答を表示）</>}
+                  </button>
+                </div>
+
+                <div className="flex gap-2 pt-2">
                   <button 
                     onClick={handleSave}
                     className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
@@ -318,7 +348,7 @@
               {/* 区切り線 */}
               <div className="my-6 border-b-2 border-dashed border-sage/30"></div>
 
-              {/* 保存済みプリント一覧（コルクボード風エリア） */}
+              {/* 保存済みプリント一覧 */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-bold text-bluegrey flex items-center gap-2">
@@ -364,13 +394,12 @@
           {/* 右側：プレビュー＆印刷エリア */}
           <div className="w-full md:w-2/3 lg:w-3/4 bg-bluegrey/10 overflow-auto flex justify-center p-4 md:p-8 noprint-bg">
             
-            {/* プリント用紙本体（A4縦を想定） */}
             <div className="print-area bg-white shadow-2xl rounded-sm w-[210mm] h-[297mm] flex flex-col relative overflow-hidden shrink-0">
               
               {/* プリントのタイトル部分 */}
               <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-8">
                 <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
-                  かきかたれんしゅう
+                  かんじテスト
                 </div>
                 <div className="flex gap-4">
                   <div className="text-lg text-bluegrey flex items-end">
@@ -384,21 +413,36 @@
                 </div>
               </div>
 
-              {/* マス目エリア（縦書き表示のためflex-row-reverseを使用） */}
-              <div className="flex-1 flex flex-row-reverse justify-center gap-2">
-                {lines.map((line, colIndex) => {
-                  // 各行を最大8文字とする（はみ出た分は表示しないか、調整）
-                  const chars = line.split('');
-                  // 常に8マス表示するための空配列調整
+              {/* マス目エリア */}
+              {/* ルビを表示するスペースを確保するため、列の間隔(gap)を 2 から 6 に広げました */}
+              <div className="flex-1 flex flex-row-reverse justify-center gap-6">
+                {parsedLines.map((lineCells, colIndex) => {
+                  // 各行を最大8マスとして描画
                   const cells = Array.from({ length: 8 }); 
                   
                   return (
                     <div key={colIndex} className="flex flex-col gap-2">
                       {cells.map((_, rowIndex) => {
-                        const char = chars[rowIndex] || '';
+                        const cellData = lineCells[rowIndex] || { char: '', ruby: '', inBlank: false };
+                        
+                        // 穴埋め指定されている文字の表示ロジック
+                        const isHidden = cellData.inBlank && hideBlanks;
+                        const textColor = cellData.inBlank && !hideBlanks ? 'text-terracotta' : '';
+
                         return (
                           <div key={rowIndex} className="kakikata-masu">
-                            <span className="kakikata-char">{char}</span>
+                            {/* マスの中の文字（答え） */}
+                            {cellData.char && (
+                              <span className={`kakikata-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                {cellData.char}
+                              </span>
+                            )}
+                            {/* マスの横のルビ（ヒント・常に表示） */}
+                            {cellData.ruby && (
+                              <span className="kakikata-ruby">
+                                {cellData.ruby}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
