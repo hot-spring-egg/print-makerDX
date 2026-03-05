@@ -27,9 +27,6 @@
             'bluegrey': '#3D405B',
             'terracotta': '#E07A5F',
             'mustard': '#F2CC8F'
-          },
-          fontFamily: {
-            'sans': ['"UD デジタル 教科書体 NP-R"', '"UD デジタル 教科書体 N-R"', '"Klee One"', 'sans-serif'],
           }
         }
       }
@@ -41,26 +38,43 @@
     body {
       background-color: #F4F1DE;
       color: #3D405B;
+      font-family: "UD デジタル 教科書体 NP-R", "UD デジタル 教科書体 N-R", "Klee One", sans-serif;
     }
 
-    /* 穴埋め用：かきかたプリントのマス目（十字リーダー付き） */
-    .kakikata-masu {
-      width: 4rem; /* 約64px */
-      height: 4rem;
-      border: 1px solid #81B29A;
-      margin-bottom: -1px; /* 縦に並べた時に枠線を重ねて隙間をなくす */
-      position: relative;
-      display: flex;
+    /* 縦書き文章エリア */
+    .print-content {
+      writing-mode: vertical-rl; /* 縦書き指定（右から左へ） */
+      text-orientation: mixed;   /* 句読点や小書き文字を正しく配置 */
+      font-size: 2.2rem;         /* 問題文の文字サイズ */
+      line-height: 1.6;          /* 通常の文字の縦の間隔 */
+      height: 100%;
+    }
+
+    .print-content p {
+      margin-left: 4rem;         /* 行（列）と行の間の横の隙間 */
+      margin-right: 0;
+      margin-top: 0;
+      margin-bottom: 0;
+      min-height: 1em;           /* 空行対策 */
+    }
+
+    /* 穴埋めのマス目（文章の中にブロックとしてはめ込む） */
+    .masu-inline {
+      display: inline-flex;
       justify-content: center;
       align-items: center;
-      font-size: 2.5rem;
-      font-weight: 400;
-      color: #3D405B;
+      width: 4rem;
+      height: 4rem;
+      border: 1px solid #81B29A;
       background-color: white;
+      position: relative;
+      vertical-align: middle;
+      text-orientation: upright; /* マスの中の文字はまっすぐ */
+      margin-bottom: -1px;       /* 連続したマスの枠線を重ねて隙間をゼロにする */
     }
 
     /* 十字の点線 */
-    .kakikata-masu::before {
+    .masu-inline::before {
       content: '';
       position: absolute;
       top: 50%;
@@ -70,7 +84,7 @@
       border-top: 1px dashed rgba(129, 178, 154, 0.6);
       z-index: 1;
     }
-    .kakikata-masu::after {
+    .masu-inline::after {
       content: '';
       position: absolute;
       top: 0;
@@ -81,79 +95,55 @@
       z-index: 1;
     }
 
-    /* 問題文用：マス目なしの通常の文字（枠はないが、同じ縦横幅を確保して整列させる） */
-    .kakikata-text {
-      width: 4rem; 
-      height: 4rem;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 2.5rem;
-      font-weight: 400;
-      color: #3D405B;
-    }
-
-    /* 文字は点線より上に表示 */
-    .kakikata-char {
+    /* マスの中の文字 */
+    .masu-char {
       z-index: 2;
       position: relative;
+      font-size: 3rem; /* マスの中の文字は少し大きく */
+      line-height: 1;
     }
 
-    /* マスの横に表示するルビ（ヒント）- 被らないように完全独立配置 */
-    .kakikata-ruby {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: -2.2rem; /* マスの完全に外側右に配置 */
-      width: 2rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      writing-mode: vertical-rl; /* 縦書き指定 */
-      text-orientation: upright; /* 文字を確実に正立させる */
-      font-size: 1rem;
+    /* ふりがな（ルビ）の設定 */
+    ruby {
+      ruby-align: center;
+      ruby-position: over; /* 縦書き時は右側に配置される */
+    }
+    rt {
+      font-size: 1.2rem;
       color: #3D405B;
-      letter-spacing: 1px;
-      z-index: 10;
+      letter-spacing: 0.1em;
+      transform: translateX(-2px); /* マスに少しだけ近づける微調整 */
     }
 
     /* スクロールバーのカスタマイズ */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #F4F1DE; 
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #81B29A; 
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #3D405B; 
-    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #F4F1DE; }
+    ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3D405B; }
 
-    /* 印刷用の設定 */
-    @page {
-      size: A4 portrait;
-      margin: 0;
+    /* ★ 印刷用の設定（A4 横向き） */
+    @page { 
+      size: A4 landscape; /* 横向きに指定 */
+      margin: 0; 
     }
     @media print {
-      body {
-        background-color: white;
-      }
-      .noprint {
-        display: none !important;
-      }
+      body { background-color: white; }
+      .noprint { display: none !important; }
       .print-area {
-        width: 210mm;
-        height: 297mm;
+        width: 297mm;  /* A4横の幅 */
+        height: 210mm; /* A4横の高さ */
         margin: 0;
-        padding: 20mm;
+        padding: 15mm 20mm; /* 上下15mm、左右20mmの余白 */
         box-shadow: none;
         background: white;
         page-break-after: always;
       }
+    }
+    /* 画面表示用のA4横スタイル */
+    .print-area {
+      width: 297mm;
+      height: 210mm;
+      padding: 15mm 20mm;
     }
   </style>
 </head>
@@ -163,7 +153,6 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // SVG Icons
     const SaveIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>;
     const PrinterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>;
     const FolderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>;
@@ -172,11 +161,11 @@
     const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
     const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
-    const STORAGE_KEY = 'kakikata_prints_data_v5';
+    const STORAGE_KEY = 'kakikata_prints_data_v7';
 
     const App = () => {
       const [title, setTitle] = useState('');
-      const [text, setText] = useState('あさ、[早:はや]く\n[起:お]きる。\n\nがっこうに\n[行:い]きます。\n\n[　:（なまえ）]');
+      const [text, setText] = useState('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[友:とも]だちと、あそぶ。\n\n[　:（なまえ）]');
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
@@ -250,7 +239,7 @@
 
       const handleNew = () => {
         setTitle('');
-        setText('あさ、[早:はや]く\n[起:お]きる。\n\nがっこうに\n[行:い]きます。');
+        setText('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[　:（なまえ）]');
         setCurrentId(null);
       };
 
@@ -258,33 +247,29 @@
         window.print();
       };
 
-      // 文章のパース処理
+      // 文章のパース処理（文章全体をテキストとマスの塊に切り分ける）
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
-        const lineCells = [];
-        const regex = /\[([^\]:]+)(?::([^\]]+))?\]|([^\[\]])/gu;
+        const parts = [];
+        const regex = /\[([^\]:]+)(?::([^\]]+))?\]/gu;
+        let lastIndex = 0;
         let match;
         
         while ((match = regex.exec(line)) !== null) {
-          if (match[1]) {
-            lineCells.push({
-              char: match[1],
-              ruby: match[2] || '',
-              inBlank: true
-            });
-          } else if (match[3]) {
-            lineCells.push({
-              char: match[3],
-              ruby: '',
-              inBlank: false
-            });
+          if (match.index > lastIndex) {
+            parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
           }
+          parts.push({ type: 'blank', char: match[1], ruby: match[2] || '' });
+          lastIndex = regex.lastIndex;
         }
-        return lineCells;
+        if (lastIndex < line.length) {
+          parts.push({ type: 'text', content: line.substring(lastIndex) });
+        }
+        return parts;
       });
 
       return (
-        <div className="min-h-screen flex flex-col md:flex-row font-sans">
+        <div className="min-h-screen flex flex-col md:flex-row">
           
           {/* 左側：編集・管理パネル */}
           <div className="w-full md:w-1/3 lg:w-1/4 bg-white shadow-xl z-10 flex flex-col h-screen noprint">
@@ -294,7 +279,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">レイアウト・ルビ修正版</p>
+              <p className="text-sm mt-1 opacity-90">A4横・完全縦書き版</p>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto">
@@ -313,16 +298,16 @@
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="例：2ねんせい かんじテスト"
-                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30"
+                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 font-sans"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
-                  <div className="text-xs text-terracotta mb-2 font-bold bg-terracotta/10 p-2 rounded leading-relaxed">
-                    💡 [ ] で囲んだ文字<b>だけ</b>がマス目になります。<br/>
+                  <div className="text-xs text-terracotta mb-2 font-bold bg-terracotta/10 p-2 rounded leading-relaxed font-sans">
+                    💡 [ ] で囲んだ文字がマス目になります。<br/>
                     💡 <b>[答え:ヒント]</b> で読みがなを出せます。<br/>
-                    💡 空のマスを作りたい時は、全角スペースを囲んで <b>[　]</b> と入力してください。
+                    💡 連続させる時は <b>[学:がっ][校:こう]</b> とします。
                   </div>
                   <textarea 
                     value={text}
@@ -333,7 +318,7 @@
                   ></textarea>
                 </div>
 
-                <div className="flex justify-end mb-2">
+                <div className="flex justify-end mb-2 font-sans">
                   <button
                     onClick={() => setHideBlanks(!hideBlanks)}
                     className={`text-sm px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-colors ${hideBlanks ? 'bg-terracotta text-white' : 'bg-cream text-terracotta border border-terracotta'}`}
@@ -342,25 +327,25 @@
                   </button>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2 font-sans">
                   <button 
                     onClick={handleSave}
                     className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
                   >
-                    <SaveIcon /> 保存する
+                    <SaveIcon /> 保存
                   </button>
                   <button 
                     onClick={handlePrint}
                     className="flex-1 bg-bluegrey hover:bg-[#2c2f45] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
                   >
-                    <PrinterIcon /> 印刷する
+                    <PrinterIcon /> 印刷
                   </button>
                 </div>
               </div>
 
               <div className="my-6 border-b-2 border-dashed border-sage/30"></div>
 
-              <div>
+              <div className="font-sans">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-bold text-bluegrey flex items-center gap-2">
                     <FolderIcon /> 保存したプリント
@@ -405,14 +390,14 @@
           {/* 右側：プレビュー＆印刷エリア */}
           <div className="w-full md:w-2/3 lg:w-3/4 bg-bluegrey/10 overflow-auto flex justify-center p-4 md:p-8 noprint-bg">
             
-            <div className="print-area bg-white shadow-2xl rounded-sm w-[210mm] h-[297mm] flex flex-col relative overflow-hidden shrink-0">
+            <div className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
               
-              {/* プリントのタイトル部分 */}
-              <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-6">
-                <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
+              {/* ヘッダー（名前欄など・横書きのまま配置） */}
+              <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-6 shrink-0">
+                <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2 font-sans">
                   かんじテスト
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 font-sans">
                   <div className="text-lg text-bluegrey flex items-end">
                     <span className="mr-2">ねん</span>
                     <span className="mr-2">くみ</span>
@@ -424,48 +409,43 @@
                 </div>
               </div>
 
-              {/* マス目エリア */}
-              {/* ルビのための横の隙間(gap-10)を広めにとり、縦の隙間は完全になくしました */}
-              <div className="flex-1 flex flex-row-reverse justify-start gap-10 pt-4 px-4">
-                {parsedLines.map((lineCells, colIndex) => {
-                  return (
-                    <div key={colIndex} className="flex flex-col justify-start"> {/* 縦のgapを削除し密着させる */}
-                      {lineCells.map((cellData, rowIndex) => {
-                        const isHidden = cellData.inBlank && hideBlanks;
-                        const textColor = cellData.inBlank && !hideBlanks ? 'text-terracotta' : '';
+              {/* 縦書き本文エリア */}
+              <div className="print-content flex-1 pr-4 pt-4">
+                {parsedLines.map((parts, colIndex) => (
+                  <p key={colIndex}>
+                    {parts.map((part, index) => {
+                      if (part.type === 'text') {
+                        return <span key={index}>{part.content}</span>;
+                      } 
+                      else {
+                        const isSpace = part.char.trim() === '' || part.char === '　';
+                        const isHidden = !isSpace && hideBlanks;
+                        const textColor = !hideBlanks ? 'text-terracotta' : '';
 
-                        // 穴埋め指定されている文字は「マス目（十字線）」で囲む
-                        if (cellData.inBlank) {
+                        const masu = (
+                          <span className="masu-inline">
+                            <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                              {part.char}
+                            </span>
+                          </span>
+                        );
+
+                        if (part.ruby) {
                           return (
-                            <div key={rowIndex} className="kakikata-masu">
-                              {cellData.char && (
-                                <span className={`kakikata-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                  {cellData.char}
-                                </span>
-                              )}
-                              {cellData.ruby && (
-                                <span className="kakikata-ruby">
-                                  {cellData.ruby}
-                                </span>
-                              )}
-                            </div>
+                            <ruby key={index}>
+                              {masu}
+                              <rt>{part.ruby}</rt>
+                            </ruby>
                           );
-                        } 
-                        // 穴埋め指定されていない通常の文字は「枠なし」で表示
-                        else {
-                          return (
-                            <div key={rowIndex} className="kakikata-text">
-                              <span className="kakikata-char">
-                                {cellData.char}
-                              </span>
-                            </div>
-                          );
+                        } else {
+                          return <React.Fragment key={index}>{masu}</React.Fragment>;
                         }
-                      })}
-                    </div>
-                  );
-                })}
+                      }
+                    })}
+                  </p>
+                ))}
               </div>
+
             </div>
 
           </div>
