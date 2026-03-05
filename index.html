@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>オリジナルプリントメーカーDX（ローカル保存版）</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'sage': '#81B29A',
+            'cream': '#F4F1DE',
+            'bluegrey': '#3D405B',
+            'terracotta': '#E07A5F',
+            'mustard': '#F2CC8F'
+          },
+          fontFamily: {
+            'sans': ['"M PLUS Rounded 1c"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 全体のベース設定 */
+    body {
+      background-color: #F4F1DE;
+      color: #3D405B;
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+    }
+
+    /* かきかたプリントのマス目（十字リーダー付き） */
+    .kakikata-masu {
+      width: 4rem; /* 約64px */
+      height: 4rem;
+      border: 2px solid #81B29A;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5rem;
+      font-weight: 500;
+      color: #3D405B;
+      background-color: white;
+    }
+    
+    .kakikata-masu.empty {
+      color: transparent;
+    }
+
+    /* 十字の点線 */
+    .kakikata-masu::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 0;
+      border-top: 1px dashed rgba(129, 178, 154, 0.5); /* セージグリーンの半透明 */
+      z-index: 1;
+    }
+    .kakikata-masu::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 0;
+      height: 100%;
+      border-left: 1px dashed rgba(129, 178, 154, 0.5);
+      z-index: 1;
+    }
+
+    /* 文字は点線より上に表示 */
+    .kakikata-char {
+      z-index: 2;
+      position: relative;
+      /* 縦書き特有の記号の向き調整などを一部行う場合はここに追加 */
+    }
+
+    /* スクロールバーのカスタマイズ（北欧風） */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F4F1DE; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #81B29A; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3D405B; 
+    }
+
+    /* 印刷用の設定 */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    @media print {
+      body {
+        background-color: white;
+      }
+      .noprint {
+        display: none !important;
+      }
+      .print-area {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 20mm; /* 余白 */
+        box-shadow: none;
+        background: white;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // SVG Icons
+    const SaveIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+    );
+    const PrinterIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+    );
+    const FolderIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+    );
+    const TrashIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+    );
+    const PlusIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    );
+
+    const STORAGE_KEY = 'kakikata_prints_data';
+
+    const App = () => {
+      // 全てのHooksを関数の先頭で宣言する
+      const [title, setTitle] = useState('');
+      const [text, setText] = useState('あいうえお\nかきくけこ');
+      const [savedPrints, setSavedPrints] = useState([]);
+      const [currentId, setCurrentId] = useState(null);
+      const [notification, setNotification] = useState('');
+
+      // 初回マウント時にlocalStorageからデータを読み込む
+      useEffect(() => {
+        const loadedData = localStorage.getItem(STORAGE_KEY);
+        if (loadedData) {
+          try {
+            setSavedPrints(JSON.parse(loadedData));
+          } catch (e) {
+            console.error("データの読み込みに失敗しました", e);
+          }
+        }
+      }, []);
+
+      // 通知メッセージを一定時間で消す
+      useEffect(() => {
+        if (notification) {
+          const timer = setTimeout(() => setNotification(''), 3000);
+          return () => clearTimeout(timer);
+        }
+      }, [notification]);
+
+      // 保存処理
+      const handleSave = () => {
+        if (!title.trim()) {
+          alert('プリントのタイトルを入力してください。');
+          return;
+        }
+
+        const newPrint = {
+          id: currentId || Date.now().toString(),
+          title: title,
+          text: text,
+          updatedAt: new Date().toLocaleString('ja-JP')
+        };
+
+        let updatedPrints;
+        if (currentId) {
+          // 上書き更新
+          updatedPrints = savedPrints.map(p => p.id === currentId ? newPrint : p);
+        } else {
+          // 新規追加
+          updatedPrints = [newPrint, ...savedPrints];
+          setCurrentId(newPrint.id);
+        }
+
+        setSavedPrints(updatedPrints);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPrints));
+        setNotification('✨ プリントを保存しました！');
+      };
+
+      // 読み込み処理
+      const handleLoad = (print) => {
+        setTitle(print.title);
+        setText(print.text);
+        setCurrentId(print.id);
+        setNotification(`📂 「${print.title}」をひらきました。`);
+      };
+
+      // 削除処理
+      const handleDelete = (e, id) => {
+        e.stopPropagation(); // 読み込みイベントの発火を防ぐ
+        if (confirm('このプリントを削除してもよろしいですか？')) {
+          const updatedPrints = savedPrints.filter(p => p.id !== id);
+          setSavedPrints(updatedPrints);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPrints));
+          
+          if (currentId === id) {
+            handleNew();
+          }
+          setNotification('🗑️ プリントを削除しました。');
+        }
+      };
+
+      // 新規作成
+      const handleNew = () => {
+        setTitle('');
+        setText('あいうえお\nかきくけこ');
+        setCurrentId(null);
+      };
+
+      // 印刷処理
+      const handlePrint = () => {
+        window.print();
+      };
+
+      // テキストを行ごとに分割（最大7行、各行最大5文字を想定したレイアウト用）
+      // ※今回はプレビュー用として簡単な分割処理を行う
+      const lines = text.split('\n');
+
+      return (
+        <div className="min-h-screen flex flex-col md:flex-row">
+          
+          {/* 左側：編集・管理パネル (印刷時は非表示) */}
+          <div className="w-full md:w-1/3 lg:w-1/4 bg-white shadow-xl z-10 flex flex-col h-screen noprint">
+            
+            {/* ヘッダーエリア */}
+            <div className="bg-sage text-white p-4 shadow-md">
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
+                プリントメーカーDX
+              </h1>
+              <p className="text-sm mt-1 opacity-90">ローカル保存・再編集対応版</p>
+            </div>
+
+            {/* 編集フォーム */}
+            <div className="p-5 flex-1 overflow-y-auto">
+              
+              {notification && (
+                <div className="mb-4 p-3 bg-mustard/20 text-bluegrey rounded-lg text-sm font-bold border-l-4 border-mustard flex items-center">
+                  {notification}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-bluegrey mb-1">プリントのタイトル（保存用）</label>
+                  <input 
+                    type="text" 
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="例：1ねんせい かんじテスト"
+                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字</label>
+                  <textarea 
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    rows="4"
+                    placeholder="練習させたい文字を入力してください。改行で列が変わります。"
+                    className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none"
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleSave}
+                    className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
+                  >
+                    <SaveIcon /> 保存する
+                  </button>
+                  <button 
+                    onClick={handlePrint}
+                    className="flex-1 bg-bluegrey hover:bg-[#2c2f45] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
+                  >
+                    <PrinterIcon /> 印刷する
+                  </button>
+                </div>
+              </div>
+
+              {/* 区切り線 */}
+              <div className="my-6 border-b-2 border-dashed border-sage/30"></div>
+
+              {/* 保存済みプリント一覧（コルクボード風エリア） */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-bluegrey flex items-center gap-2">
+                    <FolderIcon /> 保存したプリント
+                  </h2>
+                  <button 
+                    onClick={handleNew}
+                    className="text-sm bg-cream text-bluegrey hover:bg-mustard px-2 py-1 rounded shadow-sm transition-colors flex items-center gap-1 font-bold"
+                  >
+                    <PlusIcon /> 新規
+                  </button>
+                </div>
+
+                <div className="space-y-3 bg-cream/50 p-3 rounded-xl border border-sage/20">
+                  {savedPrints.length === 0 ? (
+                    <p className="text-sm text-center text-bluegrey/60 py-4">保存されたプリントはありません</p>
+                  ) : (
+                    savedPrints.map((print) => (
+                      <div 
+                        key={print.id} 
+                        onClick={() => handleLoad(print)}
+                        className={`group relative p-3 rounded-lg cursor-pointer transition-all shadow-sm border-l-4 ${currentId === print.id ? 'bg-white border-sage shadow-md' : 'bg-white/60 border-transparent hover:bg-white hover:border-sage/50'}`}
+                      >
+                        <h3 className="font-bold text-bluegrey truncate pr-6">{print.title}</h3>
+                        <p className="text-xs text-bluegrey/60 mt-1">{print.updatedAt}</p>
+                        
+                        <button 
+                          onClick={(e) => handleDelete(e, print.id)}
+                          className="absolute top-1/2 right-2 -translate-y-1/2 text-terracotta/50 hover:text-terracotta bg-cream hover:bg-red-50 p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                          title="削除する"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 右側：プレビュー＆印刷エリア */}
+          <div className="w-full md:w-2/3 lg:w-3/4 bg-bluegrey/10 overflow-auto flex justify-center p-4 md:p-8 noprint-bg">
+            
+            {/* プリント用紙本体（A4縦を想定） */}
+            <div className="print-area bg-white shadow-2xl rounded-sm w-[210mm] h-[297mm] flex flex-col relative overflow-hidden shrink-0">
+              
+              {/* プリントのタイトル部分 */}
+              <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-8">
+                <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
+                  かきかたれんしゅう
+                </div>
+                <div className="flex gap-4">
+                  <div className="text-lg text-bluegrey flex items-end">
+                    <span className="mr-2">ねん</span>
+                    <span className="mr-2">くみ</span>
+                  </div>
+                  <div className="text-lg text-bluegrey flex items-end">
+                    <span>なまえ</span>
+                    <div className="w-48 border-b border-bluegrey ml-2"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* マス目エリア（縦書き表示のためflex-row-reverseを使用） */}
+              <div className="flex-1 flex flex-row-reverse justify-center gap-2">
+                {lines.map((line, colIndex) => {
+                  // 各行を最大8文字とする（はみ出た分は表示しないか、調整）
+                  const chars = line.split('');
+                  // 常に8マス表示するための空配列調整
+                  const cells = Array.from({ length: 8 }); 
+                  
+                  return (
+                    <div key={colIndex} className="flex flex-col gap-2">
+                      {cells.map((_, rowIndex) => {
+                        const char = chars[rowIndex] || '';
+                        return (
+                          <div key={rowIndex} className="kakikata-masu">
+                            <span className="kakikata-char">{char}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
