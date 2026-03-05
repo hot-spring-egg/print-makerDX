@@ -57,7 +57,7 @@
       min-height: 1em;
     }
 
-    /* 穴埋めのマス目 */
+    /* --- 書き問題用：穴埋めのマス目 --- */
     .masu-inline {
       display: inline-flex;
       justify-content: center;
@@ -100,6 +100,7 @@
       line-height: 1;
     }
 
+    /* ふりがな（マス目の横のヒントルビ）の設定 */
     ruby {
       ruby-align: center;
       ruby-position: over;
@@ -111,6 +112,19 @@
       transform: translateX(-2px);
     }
 
+    /* --- 読み問題用：カッコ付きルビ --- */
+    .yomi-rt {
+      font-size: calc(1.3rem * var(--size-scale, 1));
+      color: #3D405B;
+      letter-spacing: 0.1em;
+      transform: translateX(-2px);
+    }
+    .yomi-bracket {
+      color: #81B29A;
+      font-weight: normal;
+    }
+
+    /* スクロールバーのカスタマイズ */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #F4F1DE; }
     ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
@@ -149,7 +163,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     const SaveIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>;
     const PrinterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>;
@@ -159,7 +173,7 @@
     const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
     const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
-    // 縦書き用の名前欄コンポーネント（右・左配置用）
+    // 縦書き用の名前欄
     const VerticalNameField = () => (
       <div className="font-sans text-[1.1rem] text-bluegrey tracking-widest" style={{ writingMode: 'vertical-rl' }}>
         <div className="ml-5">
@@ -173,11 +187,11 @@
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v10';
+    const STORAGE_KEY = 'kakikata_prints_data_v12';
 
     const App = () => {
       const [title, setTitle] = useState('');
-      const [text, setText] = useState('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[友:とも]だちと、あそぶ。');
+      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n{友:とも}だちと、あそぶ。\n\n[　:（なまえ）]');
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
@@ -185,9 +199,10 @@
       const [hideBlanks, setHideBlanks] = useState(true);
       const [lineSpacing, setLineSpacing] = useState(2.0); 
       const [sizeScale, setSizeScale] = useState(1.0);
-      
-      // ★ 追加：名前欄の配置ステート ('top', 'bottom', 'right', 'left', 'none')
       const [namePosition, setNamePosition] = useState('top');
+
+      // ★ テキストエリアへの参照を作成
+      const textareaRef = useRef(null);
 
       useEffect(() => {
         const loadedData = localStorage.getItem(STORAGE_KEY);
@@ -207,6 +222,27 @@
         }
       }, [notification]);
 
+      // ★ カーソル位置にカッコを挿入する関数
+      const insertAtCursor = (template, cursorOffset) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = text;
+
+        // 選択範囲がある場合は、選択範囲の前後にカッコをつける応用も可能ですが、
+        // 今回はシンプルにカーソル位置にテンプレートを挿入します。
+        const newText = currentText.substring(0, start) + template + currentText.substring(end);
+        setText(newText);
+
+        // 状態が更新された直後にフォーカスを戻し、カーソルをコロンの前に合わせる
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+        }, 0);
+      };
+
       const handleSave = () => {
         if (!title.trim()) {
           alert('プリントのタイトルを入力してください。');
@@ -219,7 +255,7 @@
           text: text,
           lineSpacing: lineSpacing,
           sizeScale: sizeScale,
-          namePosition: namePosition, // 名前欄の配置も保存
+          namePosition: namePosition,
           updatedAt: new Date().toLocaleString('ja-JP')
         };
 
@@ -241,7 +277,7 @@
         setText(print.text);
         setLineSpacing(print.lineSpacing || 2.0);
         setSizeScale(print.sizeScale || 1.0);
-        setNamePosition(print.namePosition || 'top'); // 読み込み時に復元
+        setNamePosition(print.namePosition || 'top');
         setCurrentId(print.id);
         setNotification(`📂 「${print.title}」をひらきました。`);
       };
@@ -262,7 +298,7 @@
 
       const handleNew = () => {
         setTitle('');
-        setText('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。');
+        setText('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n[　:（なまえ）]');
         setLineSpacing(2.0);
         setSizeScale(1.0);
         setNamePosition('top');
@@ -277,7 +313,7 @@
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
         const parts = [];
-        const regex = /\[([^\]:]+)(?::([^\]]+))?\]/gu;
+        const regex = /\[([^\]:]+)(?::([^\]]+))?\]|\{([^\}:]+)(?::([^\}]+))?\}/gu;
         let lastIndex = 0;
         let match;
         
@@ -285,7 +321,13 @@
           if (match.index > lastIndex) {
             parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
           }
-          parts.push({ type: 'blank', char: match[1], ruby: match[2] || '' });
+          
+          if (match[1] !== undefined) {
+            parts.push({ type: 'write', char: match[1], ruby: match[2] || '' });
+          } else if (match[3] !== undefined) {
+            parts.push({ type: 'read', char: match[3], ruby: match[4] || '' });
+          }
+          
           lastIndex = regex.lastIndex;
         }
         if (lastIndex < line.length) {
@@ -305,7 +347,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">フルカスタマイズ版</p>
+              <p className="text-sm mt-1 opacity-90">入力支援・フル対応版</p>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto">
@@ -330,10 +372,37 @@
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
+                  
+                  {/* ★ 入力支援ボタンエリア */}
+                  <div className="flex gap-2 mb-2 font-sans">
+                    <button 
+                      onClick={() => insertAtCursor('[:]', 1)}
+                      className="flex-1 py-1.5 bg-sage hover:bg-[#689880] text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-1"
+                      title="書き問題（マス目）を挿入"
+                    >
+                      [ ] 書き
+                    </button>
+                    <button 
+                      onClick={() => insertAtCursor('{:}', 1)}
+                      className="flex-1 py-1.5 bg-bluegrey hover:bg-[#2c2f45] text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-1"
+                      title="読み問題（カッコ）を挿入"
+                    >
+                      {`{ }`} 読み
+                    </button>
+                    <button 
+                      onClick={() => insertAtCursor('[　]', 2)}
+                      className="flex-1 py-1.5 bg-white border border-sage text-sage hover:bg-sage hover:text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-1"
+                      title="空欄のマス目を挿入"
+                    >
+                      [　] 空マス
+                    </button>
+                  </div>
+
                   <textarea 
+                    ref={textareaRef}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    rows="5"
+                    rows="8"
                     placeholder="問題を入力してください。"
                     className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none font-sans leading-relaxed"
                   ></textarea>
@@ -342,7 +411,6 @@
                 {/* デザイン・レイアウト設定 */}
                 <div className="bg-cream/50 p-4 rounded-lg border border-sage/20 space-y-4">
                   
-                  {/* ★ なまえ欄の配置プルダウン */}
                   <div>
                     <label className="block text-xs font-bold text-bluegrey mb-2">
                       なまえ欄の配置
@@ -469,9 +537,8 @@
             
             <div className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
               
-              {/* 【上部ヘッダー】タイトル表示と、namePosition="top"の時の名前欄 */}
+              {/* 【上部ヘッダー】 */}
               <div className={`flex items-end border-b-2 border-bluegrey pb-2 mb-4 shrink-0 font-sans ${namePosition === 'top' ? 'justify-between' : 'justify-start'}`}>
-                {/* 先生が入力したタイトルがそのままプリントに印字されます */}
                 <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
                   {title || 'プリント'}
                 </div>
@@ -490,18 +557,16 @@
                 )}
               </div>
 
-              {/* メインエリア（右名前欄・本文・左名前欄） */}
-              {/* flex-row-reverseを使うことで、HTML上で先に書いた要素が右側に来ます */}
+              {/* メインエリア */}
               <div className="flex-1 flex flex-row-reverse justify-start overflow-hidden">
                 
-                {/* ★右の名前欄（縦書き） */}
                 {namePosition === 'right' && (
                   <div className="shrink-0 flex flex-col justify-end pb-8 pl-4 pr-2">
                     <VerticalNameField />
                   </div>
                 )}
 
-                {/* 本文エリア */}
+                {/* 縦書き本文エリア */}
                 <div 
                   className="print-content flex-1 pt-2" 
                   style={{ '--size-scale': sizeScale }}
@@ -509,10 +574,12 @@
                   {parsedLines.map((parts, colIndex) => (
                     <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
                       {parts.map((part, index) => {
+                        // 1. 通常テキスト
                         if (part.type === 'text') {
                           return <span key={index}>{part.content}</span>;
                         } 
-                        else {
+                        // 2. 書き問題（マス目）
+                        else if (part.type === 'write') {
                           const isSpace = part.char.trim() === '' || part.char === '　';
                           const isHidden = !isSpace && hideBlanks;
                           const textColor = !hideBlanks ? 'text-terracotta' : '';
@@ -536,12 +603,29 @@
                             return <React.Fragment key={index}>{masu}</React.Fragment>;
                           }
                         }
+                        // 3. 読み問題（横にカッコ）
+                        else if (part.type === 'read') {
+                          const isHidden = hideBlanks;
+                          const textColor = !hideBlanks ? 'text-terracotta' : '';
+                          
+                          return (
+                            <ruby key={index}>
+                              <span>{part.char}</span>
+                              <rt className="yomi-rt">
+                                <span className="yomi-bracket">（</span>
+                                <span className={`${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                  {part.ruby || '　　'} {/* よみが指定されていない場合は空欄を確保 */}
+                                </span>
+                                <span className="yomi-bracket">）</span>
+                              </rt>
+                            </ruby>
+                          );
+                        }
                       })}
                     </p>
                   ))}
                 </div>
 
-                {/* ★左の名前欄（縦書き） */}
                 {namePosition === 'left' && (
                   <div className="shrink-0 flex flex-col justify-end pb-8 pr-4 pl-4 border-r border-dashed border-bluegrey/20">
                     <VerticalNameField />
@@ -550,7 +634,7 @@
 
               </div>
 
-              {/* 【下部フッター】namePosition="bottom"の時の名前欄 */}
+              {/* 【下部フッター】 */}
               {namePosition === 'bottom' && (
                 <div className="flex justify-start items-end border-t-2 border-bluegrey pt-4 mt-2 shrink-0 font-sans">
                   <div className="flex gap-4">
