@@ -41,17 +41,15 @@
       font-family: "UD デジタル 教科書体 NP-R", "UD デジタル 教科書体 N-R", "Klee One", sans-serif;
     }
 
-    /* 縦書き文章エリア（--size-scale はReactから渡される倍率） */
+    /* 縦書き文章エリア */
     .print-content {
       writing-mode: vertical-rl;
       text-orientation: mixed;
-      /* 基本サイズに倍率を掛けて連動させる */
       font-size: calc(2.2rem * var(--size-scale, 1));
       line-height: 1.6;
       height: 100%;
     }
 
-    /* 段落（列）の設定 */
     .print-content p {
       margin-right: 0;
       margin-top: 0;
@@ -74,7 +72,6 @@
       margin-bottom: -1px;
     }
 
-    /* 十字の点線 */
     .masu-inline::before {
       content: '';
       position: absolute;
@@ -96,7 +93,6 @@
       z-index: 1;
     }
 
-    /* マスの中の文字 */
     .masu-char {
       z-index: 2;
       position: relative;
@@ -104,7 +100,6 @@
       line-height: 1;
     }
 
-    /* ふりがな（ルビ）の設定 */
     ruby {
       ruby-align: center;
       ruby-position: over;
@@ -116,13 +111,11 @@
       transform: translateX(-2px);
     }
 
-    /* スクロールバーのカスタマイズ */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #F4F1DE; }
     ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #3D405B; }
 
-    /* スライダーのカスタマイズ */
     input[type=range] {
       accent-color: #81B29A;
     }
@@ -145,7 +138,6 @@
         page-break-after: always;
       }
     }
-    /* 画面表示用のA4横スタイル */
     .print-area {
       width: 297mm;
       height: 210mm;
@@ -167,19 +159,35 @@
     const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
     const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
-    const STORAGE_KEY = 'kakikata_prints_data_v9';
+    // 縦書き用の名前欄コンポーネント（右・左配置用）
+    const VerticalNameField = () => (
+      <div className="font-sans text-[1.1rem] text-bluegrey tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+        <div className="ml-5">
+          <span className="inline-block">ねん</span>
+          <span className="inline-block mt-6">くみ</span>
+        </div>
+        <div className="flex items-center">
+          <span className="inline-block">なまえ</span>
+          <span className="inline-block w-[1px] h-48 bg-bluegrey mt-3"></span>
+        </div>
+      </div>
+    );
+
+    const STORAGE_KEY = 'kakikata_prints_data_v10';
 
     const App = () => {
       const [title, setTitle] = useState('');
-      const [text, setText] = useState('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[友:とも]だちと、あそぶ。\n\n[　:（なまえ）]');
+      const [text, setText] = useState('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[友:とも]だちと、あそぶ。');
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
       
       const [hideBlanks, setHideBlanks] = useState(true);
       const [lineSpacing, setLineSpacing] = useState(2.0); 
-      // ★追加：文字とマスの大きさ（倍率）を調整するステート
       const [sizeScale, setSizeScale] = useState(1.0);
+      
+      // ★ 追加：名前欄の配置ステート ('top', 'bottom', 'right', 'left', 'none')
+      const [namePosition, setNamePosition] = useState('top');
 
       useEffect(() => {
         const loadedData = localStorage.getItem(STORAGE_KEY);
@@ -210,7 +218,8 @@
           title: title,
           text: text,
           lineSpacing: lineSpacing,
-          sizeScale: sizeScale, // ★大きさの設定も保存
+          sizeScale: sizeScale,
+          namePosition: namePosition, // 名前欄の配置も保存
           updatedAt: new Date().toLocaleString('ja-JP')
         };
 
@@ -231,7 +240,8 @@
         setTitle(print.title);
         setText(print.text);
         setLineSpacing(print.lineSpacing || 2.0);
-        setSizeScale(print.sizeScale || 1.0); // ★大きさの復元
+        setSizeScale(print.sizeScale || 1.0);
+        setNamePosition(print.namePosition || 'top'); // 読み込み時に復元
         setCurrentId(print.id);
         setNotification(`📂 「${print.title}」をひらきました。`);
       };
@@ -252,9 +262,10 @@
 
       const handleNew = () => {
         setTitle('');
-        setText('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[　:（なまえ）]');
+        setText('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。');
         setLineSpacing(2.0);
         setSizeScale(1.0);
+        setNamePosition('top');
         setCurrentId(null);
       };
 
@@ -294,7 +305,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">サイズ・行間自由自在版</p>
+              <p className="text-sm mt-1 opacity-90">フルカスタマイズ版</p>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto">
@@ -305,7 +316,7 @@
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">プリントのタイトル（保存用）</label>
                   <input 
@@ -322,16 +333,33 @@
                   <textarea 
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    rows="6"
+                    rows="5"
                     placeholder="問題を入力してください。"
                     className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none font-sans leading-relaxed"
                   ></textarea>
                 </div>
 
-                {/* デザイン設定（スライダー） */}
+                {/* デザイン・レイアウト設定 */}
                 <div className="bg-cream/50 p-4 rounded-lg border border-sage/20 space-y-4">
                   
-                  {/* 文字とマスの大きさスライダー */}
+                  {/* ★ なまえ欄の配置プルダウン */}
+                  <div>
+                    <label className="block text-xs font-bold text-bluegrey mb-2">
+                      なまえ欄の配置
+                    </label>
+                    <select 
+                      value={namePosition}
+                      onChange={(e) => setNamePosition(e.target.value)}
+                      className="w-full border-2 border-sage/30 rounded-lg p-2 text-sm bg-white focus:outline-none focus:border-sage text-bluegrey font-bold cursor-pointer"
+                    >
+                      <option value="top">上 （横書き・右端）</option>
+                      <option value="bottom">下 （横書き・左端）</option>
+                      <option value="right">右 （縦書き・下部）</option>
+                      <option value="left">左 （縦書き・下部）</option>
+                      <option value="none">なし （表示しない）</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-bluegrey mb-2">
                       文字とマスの大きさ
@@ -349,7 +377,6 @@
                     </div>
                   </div>
 
-                  {/* 行間のすき間スライダー */}
                   <div>
                     <label className="block text-xs font-bold text-bluegrey mb-2">
                       問題と問題のすき間
@@ -442,63 +469,102 @@
             
             <div className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
               
-              {/* ヘッダー（名前欄など・横書きのまま配置） */}
-              <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-6 shrink-0">
-                <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2 font-sans">
-                  かんじテスト
+              {/* 【上部ヘッダー】タイトル表示と、namePosition="top"の時の名前欄 */}
+              <div className={`flex items-end border-b-2 border-bluegrey pb-2 mb-4 shrink-0 font-sans ${namePosition === 'top' ? 'justify-between' : 'justify-start'}`}>
+                {/* 先生が入力したタイトルがそのままプリントに印字されます */}
+                <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
+                  {title || 'プリント'}
                 </div>
-                <div className="flex gap-4 font-sans">
-                  <div className="text-lg text-bluegrey flex items-end">
-                    <span className="mr-2">ねん</span>
-                    <span className="mr-2">くみ</span>
+                
+                {namePosition === 'top' && (
+                  <div className="flex gap-4">
+                    <div className="text-lg text-bluegrey flex items-end">
+                      <span className="mr-2">ねん</span>
+                      <span className="mr-2">くみ</span>
+                    </div>
+                    <div className="text-lg text-bluegrey flex items-end">
+                      <span>なまえ</span>
+                      <div className="w-48 border-b border-bluegrey ml-2"></div>
+                    </div>
                   </div>
-                  <div className="text-lg text-bluegrey flex items-end">
-                    <span>なまえ</span>
-                    <div className="w-48 border-b border-bluegrey ml-2"></div>
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* 縦書き本文エリア */}
-              {/* Reactのstyle属性を使って、CSS変数の --size-scale にスライダーの値を渡す */}
-              <div 
-                className="print-content flex-1 pr-4 pt-4" 
-                style={{ '--size-scale': sizeScale }}
-              >
-                {parsedLines.map((parts, colIndex) => (
-                  <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
-                    {parts.map((part, index) => {
-                      if (part.type === 'text') {
-                        return <span key={index}>{part.content}</span>;
-                      } 
-                      else {
-                        const isSpace = part.char.trim() === '' || part.char === '　';
-                        const isHidden = !isSpace && hideBlanks;
-                        const textColor = !hideBlanks ? 'text-terracotta' : '';
+              {/* メインエリア（右名前欄・本文・左名前欄） */}
+              {/* flex-row-reverseを使うことで、HTML上で先に書いた要素が右側に来ます */}
+              <div className="flex-1 flex flex-row-reverse justify-start overflow-hidden">
+                
+                {/* ★右の名前欄（縦書き） */}
+                {namePosition === 'right' && (
+                  <div className="shrink-0 flex flex-col justify-end pb-8 pl-4 pr-2">
+                    <VerticalNameField />
+                  </div>
+                )}
 
-                        const masu = (
-                          <span className="masu-inline">
-                            <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                              {part.char}
+                {/* 本文エリア */}
+                <div 
+                  className="print-content flex-1 pt-2" 
+                  style={{ '--size-scale': sizeScale }}
+                >
+                  {parsedLines.map((parts, colIndex) => (
+                    <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
+                      {parts.map((part, index) => {
+                        if (part.type === 'text') {
+                          return <span key={index}>{part.content}</span>;
+                        } 
+                        else {
+                          const isSpace = part.char.trim() === '' || part.char === '　';
+                          const isHidden = !isSpace && hideBlanks;
+                          const textColor = !hideBlanks ? 'text-terracotta' : '';
+
+                          const masu = (
+                            <span className="masu-inline">
+                              <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                {part.char}
+                              </span>
                             </span>
-                          </span>
-                        );
-
-                        if (part.ruby) {
-                          return (
-                            <ruby key={index}>
-                              {masu}
-                              <rt>{part.ruby}</rt>
-                            </ruby>
                           );
-                        } else {
-                          return <React.Fragment key={index}>{masu}</React.Fragment>;
+
+                          if (part.ruby) {
+                            return (
+                              <ruby key={index}>
+                                {masu}
+                                <rt>{part.ruby}</rt>
+                              </ruby>
+                            );
+                          } else {
+                            return <React.Fragment key={index}>{masu}</React.Fragment>;
+                          }
                         }
-                      }
-                    })}
-                  </p>
-                ))}
+                      })}
+                    </p>
+                  ))}
+                </div>
+
+                {/* ★左の名前欄（縦書き） */}
+                {namePosition === 'left' && (
+                  <div className="shrink-0 flex flex-col justify-end pb-8 pr-4 pl-4 border-r border-dashed border-bluegrey/20">
+                    <VerticalNameField />
+                  </div>
+                )}
+
               </div>
+
+              {/* 【下部フッター】namePosition="bottom"の時の名前欄 */}
+              {namePosition === 'bottom' && (
+                <div className="flex justify-start items-end border-t-2 border-bluegrey pt-4 mt-2 shrink-0 font-sans">
+                  <div className="flex gap-4">
+                    <div className="text-lg text-bluegrey flex items-end">
+                      <span className="mr-2">ねん</span>
+                      <span className="mr-2">くみ</span>
+                    </div>
+                    <div className="text-lg text-bluegrey flex items-end">
+                      <span>なまえ</span>
+                      <div className="w-48 border-b border-bluegrey ml-2"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
 
