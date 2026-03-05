@@ -41,36 +41,37 @@
       font-family: "UD デジタル 教科書体 NP-R", "UD デジタル 教科書体 N-R", "Klee One", sans-serif;
     }
 
-    /* 縦書き文章エリア */
+    /* 縦書き文章エリア（--size-scale はReactから渡される倍率） */
     .print-content {
-      writing-mode: vertical-rl; /* 縦書き指定（右から左へ） */
-      text-orientation: mixed;   /* 句読点や小書き文字を正しく配置 */
-      font-size: 2.2rem;         /* 問題文の文字サイズ */
-      line-height: 1.6;          /* 通常の文字の縦の間隔 */
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      /* 基本サイズに倍率を掛けて連動させる */
+      font-size: calc(2.2rem * var(--size-scale, 1));
+      line-height: 1.6;
       height: 100%;
     }
 
+    /* 段落（列）の設定 */
     .print-content p {
-      margin-left: 4rem;         /* 行（列）と行の間の横の隙間 */
       margin-right: 0;
       margin-top: 0;
       margin-bottom: 0;
-      min-height: 1em;           /* 空行対策 */
+      min-height: 1em;
     }
 
-    /* 穴埋めのマス目（文章の中にブロックとしてはめ込む） */
+    /* 穴埋めのマス目 */
     .masu-inline {
       display: inline-flex;
       justify-content: center;
       align-items: center;
-      width: 4rem;
-      height: 4rem;
+      width: calc(4rem * var(--size-scale, 1));
+      height: calc(4rem * var(--size-scale, 1));
       border: 1px solid #81B29A;
       background-color: white;
       position: relative;
       vertical-align: middle;
-      text-orientation: upright; /* マスの中の文字はまっすぐ */
-      margin-bottom: -1px;       /* 連続したマスの枠線を重ねて隙間をゼロにする */
+      text-orientation: upright;
+      margin-bottom: -1px;
     }
 
     /* 十字の点線 */
@@ -99,20 +100,20 @@
     .masu-char {
       z-index: 2;
       position: relative;
-      font-size: 3rem; /* マスの中の文字は少し大きく */
+      font-size: calc(3rem * var(--size-scale, 1));
       line-height: 1;
     }
 
     /* ふりがな（ルビ）の設定 */
     ruby {
       ruby-align: center;
-      ruby-position: over; /* 縦書き時は右側に配置される */
+      ruby-position: over;
     }
     rt {
-      font-size: 1.2rem;
+      font-size: calc(1.2rem * var(--size-scale, 1));
       color: #3D405B;
       letter-spacing: 0.1em;
-      transform: translateX(-2px); /* マスに少しだけ近づける微調整 */
+      transform: translateX(-2px);
     }
 
     /* スクロールバーのカスタマイズ */
@@ -121,19 +122,24 @@
     ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #3D405B; }
 
-    /* ★ 印刷用の設定（A4 横向き） */
+    /* スライダーのカスタマイズ */
+    input[type=range] {
+      accent-color: #81B29A;
+    }
+
+    /* 印刷用の設定（A4 横向き） */
     @page { 
-      size: A4 landscape; /* 横向きに指定 */
+      size: A4 landscape; 
       margin: 0; 
     }
     @media print {
       body { background-color: white; }
       .noprint { display: none !important; }
       .print-area {
-        width: 297mm;  /* A4横の幅 */
-        height: 210mm; /* A4横の高さ */
+        width: 297mm;  
+        height: 210mm; 
         margin: 0;
-        padding: 15mm 20mm; /* 上下15mm、左右20mmの余白 */
+        padding: 15mm 20mm; 
         box-shadow: none;
         background: white;
         page-break-after: always;
@@ -161,7 +167,7 @@
     const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
     const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
-    const STORAGE_KEY = 'kakikata_prints_data_v7';
+    const STORAGE_KEY = 'kakikata_prints_data_v9';
 
     const App = () => {
       const [title, setTitle] = useState('');
@@ -171,6 +177,9 @@
       const [notification, setNotification] = useState('');
       
       const [hideBlanks, setHideBlanks] = useState(true);
+      const [lineSpacing, setLineSpacing] = useState(2.0); 
+      // ★追加：文字とマスの大きさ（倍率）を調整するステート
+      const [sizeScale, setSizeScale] = useState(1.0);
 
       useEffect(() => {
         const loadedData = localStorage.getItem(STORAGE_KEY);
@@ -200,6 +209,8 @@
           id: currentId || Date.now().toString(),
           title: title,
           text: text,
+          lineSpacing: lineSpacing,
+          sizeScale: sizeScale, // ★大きさの設定も保存
           updatedAt: new Date().toLocaleString('ja-JP')
         };
 
@@ -219,6 +230,8 @@
       const handleLoad = (print) => {
         setTitle(print.title);
         setText(print.text);
+        setLineSpacing(print.lineSpacing || 2.0);
+        setSizeScale(print.sizeScale || 1.0); // ★大きさの復元
         setCurrentId(print.id);
         setNotification(`📂 「${print.title}」をひらきました。`);
       };
@@ -240,6 +253,8 @@
       const handleNew = () => {
         setTitle('');
         setText('あさ、[早:はや]く[起:お]きる。\n\n[学:がっ][校:こう]に、[行:い]きます。\n\n[　:（なまえ）]');
+        setLineSpacing(2.0);
+        setSizeScale(1.0);
         setCurrentId(null);
       };
 
@@ -247,7 +262,7 @@
         window.print();
       };
 
-      // 文章のパース処理（文章全体をテキストとマスの塊に切り分ける）
+      // 文章のパース処理
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
         const parts = [];
@@ -279,7 +294,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">A4横・完全縦書き版</p>
+              <p className="text-sm mt-1 opacity-90">サイズ・行間自由自在版</p>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto">
@@ -304,21 +319,56 @@
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
-                  <div className="text-xs text-terracotta mb-2 font-bold bg-terracotta/10 p-2 rounded leading-relaxed font-sans">
-                    💡 [ ] で囲んだ文字がマス目になります。<br/>
-                    💡 <b>[答え:ヒント]</b> で読みがなを出せます。<br/>
-                    💡 連続させる時は <b>[学:がっ][校:こう]</b> とします。
-                  </div>
                   <textarea 
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    rows="8"
+                    rows="6"
                     placeholder="問題を入力してください。"
                     className="w-full border-2 border-sage/30 rounded-lg p-2 focus:outline-none focus:border-sage bg-cream/30 resize-none font-sans leading-relaxed"
                   ></textarea>
                 </div>
 
-                <div className="flex justify-end mb-2 font-sans">
+                {/* デザイン設定（スライダー） */}
+                <div className="bg-cream/50 p-4 rounded-lg border border-sage/20 space-y-4">
+                  
+                  {/* 文字とマスの大きさスライダー */}
+                  <div>
+                    <label className="block text-xs font-bold text-bluegrey mb-2">
+                      文字とマスの大きさ
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-bluegrey/70 font-bold">小</span>
+                      <input 
+                        type="range" 
+                        min="0.6" max="1.6" step="0.1"
+                        value={sizeScale}
+                        onChange={(e) => setSizeScale(parseFloat(e.target.value))}
+                        className="flex-1 cursor-pointer"
+                      />
+                      <span className="text-xs text-bluegrey/70 font-bold">大</span>
+                    </div>
+                  </div>
+
+                  {/* 行間のすき間スライダー */}
+                  <div>
+                    <label className="block text-xs font-bold text-bluegrey mb-2">
+                      問題と問題のすき間
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-bluegrey/70 font-bold">せまい</span>
+                      <input 
+                        type="range" 
+                        min="1.2" max="6.0" step="0.2"
+                        value={lineSpacing}
+                        onChange={(e) => setLineSpacing(parseFloat(e.target.value))}
+                        className="flex-1 cursor-pointer"
+                      />
+                      <span className="text-xs text-bluegrey/70 font-bold">ひろい</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end font-sans">
                   <button
                     onClick={() => setHideBlanks(!hideBlanks)}
                     className={`text-sm px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-colors ${hideBlanks ? 'bg-terracotta text-white' : 'bg-cream text-terracotta border border-terracotta'}`}
@@ -327,7 +377,7 @@
                   </button>
                 </div>
 
-                <div className="flex gap-2 pt-2 font-sans">
+                <div className="flex gap-2 pt-1 font-sans">
                   <button 
                     onClick={handleSave}
                     className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
@@ -345,7 +395,7 @@
 
               <div className="my-6 border-b-2 border-dashed border-sage/30"></div>
 
-              <div className="font-sans">
+              <div className="font-sans pb-8">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-bold text-bluegrey flex items-center gap-2">
                     <FolderIcon /> 保存したプリント
@@ -410,9 +460,13 @@
               </div>
 
               {/* 縦書き本文エリア */}
-              <div className="print-content flex-1 pr-4 pt-4">
+              {/* Reactのstyle属性を使って、CSS変数の --size-scale にスライダーの値を渡す */}
+              <div 
+                className="print-content flex-1 pr-4 pt-4" 
+                style={{ '--size-scale': sizeScale }}
+              >
                 {parsedLines.map((parts, colIndex) => (
-                  <p key={colIndex}>
+                  <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
                     {parts.map((part, index) => {
                       if (part.type === 'text') {
                         return <span key={index}>{part.content}</span>;
