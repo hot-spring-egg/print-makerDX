@@ -112,17 +112,29 @@
       transform: translateX(-2px);
     }
 
-    /* --- 読み問題用：カッコ付きルビ --- */
+    /* --- ★ここから改修：読み問題用の大きなカッコ --- */
+    .yomi-ruby {
+      ruby-align: center;
+    }
     .yomi-rt {
-      font-size: calc(1.3rem * var(--size-scale, 1));
+      /* 読み問題の答えを書くスペースは、本文と同じくらい大きな文字サイズにする */
+      font-size: calc(2.2rem * var(--size-scale, 1));
       color: #3D405B;
       letter-spacing: 0.1em;
-      transform: translateX(-2px);
+      transform: translateX(-4px); /* 漢字に少し寄せる */
     }
     .yomi-bracket {
       color: #81B29A;
+      /* カッコのサイズをマス目並みに巨大化 */
+      font-size: calc(3.5rem * var(--size-scale, 1));
       font-weight: normal;
+      vertical-align: middle;
+      font-family: "UD デジタル 教科書体 NP-R", "Klee One", serif;
     }
+    .yomi-answer {
+      vertical-align: middle;
+    }
+    /* ----------------------------------------------- */
 
     /* スクロールバーのカスタマイズ */
     ::-webkit-scrollbar { width: 8px; }
@@ -187,7 +199,7 @@
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v13';
+    const STORAGE_KEY = 'kakikata_prints_data_v14';
 
     const App = () => {
       const [title, setTitle] = useState('');
@@ -221,7 +233,6 @@
         }
       }, [notification]);
 
-      // カーソル位置にカッコを挿入する関数
       const insertAtCursor = (template, cursorOffset) => {
         const textarea = textareaRef.current;
         if (!textarea) return;
@@ -343,7 +354,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">省スペース・フル活用版</p>
+              <p className="text-sm mt-1 opacity-90">読み問題カッコ拡大版</p>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto">
@@ -533,7 +544,6 @@
             
             <div className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
               
-              {/* ★ 【上部ヘッダー】 namePosition が 'top' の時「のみ」表示されるように変更！ */}
               {namePosition === 'top' && (
                 <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-4 shrink-0 font-sans">
                   <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
@@ -570,10 +580,12 @@
                   {parsedLines.map((parts, colIndex) => (
                     <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
                       {parts.map((part, index) => {
+                        
                         // 1. 通常テキスト
                         if (part.type === 'text') {
                           return <span key={index}>{part.content}</span>;
                         } 
+                        
                         // 2. 書き問題（マス目）
                         else if (part.type === 'write') {
                           const isSpace = part.char.trim() === '' || part.char === '　';
@@ -599,18 +611,21 @@
                             return <React.Fragment key={index}>{masu}</React.Fragment>;
                           }
                         }
-                        // 3. 読み問題（横にカッコ）
+                        
+                        // 3. ★読み問題（巨大カッコ）
                         else if (part.type === 'read') {
                           const isHidden = hideBlanks;
                           const textColor = !hideBlanks ? 'text-terracotta' : '';
+                          // 読みがなが設定されていない場合でも、最低2文字分の幅を確保して書きやすくする
+                          const answerText = part.ruby || '　　'; 
                           
                           return (
-                            <ruby key={index}>
+                            <ruby key={index} className="yomi-ruby">
                               <span>{part.char}</span>
                               <rt className="yomi-rt">
                                 <span className="yomi-bracket">（</span>
-                                <span className={`${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                  {part.ruby || '　　'} {/* よみが指定されていない場合は空欄を確保 */}
+                                <span className={`yomi-answer ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                  {answerText}
                                 </span>
                                 <span className="yomi-bracket">）</span>
                               </rt>
@@ -630,7 +645,6 @@
 
               </div>
 
-              {/* 【下部フッター】 */}
               {namePosition === 'bottom' && (
                 <div className="flex justify-start items-end border-t-2 border-bluegrey pt-4 mt-2 shrink-0 font-sans">
                   <div className="flex gap-4">
