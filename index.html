@@ -118,24 +118,21 @@
     .yomi-bracket { color: #81B29A; font-size: calc(2.5rem * var(--size-scale, 1)); font-weight: normal; vertical-align: middle; }
     .yomi-answer { vertical-align: middle; }
 
-    /* ★★★ 今回の目玉：読み問題専用のフルレイアウト ★★★ */
+    /* 読み問題専用のフルレイアウト */
     .yomi-line-container {
       position: relative;
       height: 100%;
       width: 100%;
-      /* 左側に大きなカッコを配置するための余白を確保 */
       padding-left: calc(3.5rem * var(--size-scale, 1));
     }
 
     .yomi-question-text {
-      /* 問題文は小さく表示 */
       font-size: calc(1.5rem * var(--size-scale, 1));
       line-height: 1.5;
-      margin-top: 0.5rem; /* 上に少しだけ余白 */
+      margin-top: 0.5rem;
     }
 
     .yomi-target-word {
-      /* 読みを答える対象の漢字（太字＋右側に傍線） */
       font-weight: bold;
       border-right: 2px solid #3D405B;
       padding-right: 2px;
@@ -143,16 +140,15 @@
     }
 
     .yomi-bracket-column {
-      /* カッコの列を絶対配置で左端に固定し、上下いっぱいに広げる */
       position: absolute;
       left: 0;
       top: 0;
       bottom: 0;
       width: calc(3.2rem * var(--size-scale, 1));
       display: flex;
-      flex-direction: row; /* 縦書き環境では「上から下へ」になる */
-      justify-content: space-between; /* 上端と下端にカッコを配置 */
-      align-items: center; /* 左右の中央揃え */
+      flex-direction: row; 
+      justify-content: space-between; 
+      align-items: center; 
     }
 
     .yomi-bracket-large {
@@ -168,7 +164,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      flex-grow: 1; /* 上下のカッコの間のスペースをすべて使う */
+      flex-grow: 1; 
     }
 
     /* スクロールバー */
@@ -179,7 +175,7 @@
 
     input[type=range] { accent-color: #81B29A; }
 
-    /* 印刷用の設定（A4横・余白を極限まで狭く設定） */
+    /* 印刷用の設定（A4横・余白極小） */
     @page { size: A4 landscape; margin: 0; }
     @media print {
       body { background-color: white; }
@@ -208,26 +204,41 @@
     const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
     const ScissorsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>;
 
-    // 縦書き用の名前欄
-    const VerticalNameField = () => (
-      <div className="font-sans text-[1.1rem] text-bluegrey tracking-widest" style={{ writingMode: 'vertical-rl' }}>
-        <div className="ml-4">
-          <span className="inline-block">ねん</span>
-          <span className="inline-block mt-6">くみ</span>
+    // ★ 改修：横書き用（上・下配置）の名前欄
+    const HorizontalNameField = () => (
+      <div className="flex flex-col font-sans text-bluegrey">
+        {/* 年・組を名前のすぐ上に配置 */}
+        <div className="flex gap-6 text-sm ml-[4.5rem] mb-0.5">
+          <span>年</span>
+          <span>組</span>
         </div>
-        <div className="flex items-center">
-          <span className="inline-block">なまえ</span>
-          <span className="inline-block w-[1px] h-48 bg-bluegrey mt-3"></span>
+        <div className="flex items-end text-base">
+          <span>なまえ</span>
+          <div className="w-48 border-b border-bluegrey ml-2"></div>
         </div>
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v19';
+    // ★ 改修：縦書き用（右・左配置）の名前欄
+    const VerticalNameField = () => (
+      <div className="font-sans text-bluegrey" style={{ writingMode: 'vertical-rl' }}>
+        {/* 年・組を名前のすぐ上（右側）に配置 */}
+        <div className="flex gap-6 text-sm mt-[4.5rem] ml-1">
+          <span>年</span>
+          <span>組</span>
+        </div>
+        <div className="flex items-center text-base">
+          <span className="inline-block">なまえ</span>
+          <span className="inline-block border-l border-bluegrey h-48 mt-2"></span>
+        </div>
+      </div>
+    );
+
+    const STORAGE_KEY = 'kakikata_prints_data_v20';
 
     const App = () => {
       const [title, setTitle] = useState('');
       
-      // 書き問題と読み問題が混ざったサンプルテキスト
       const [text, setText] = useState('[学:がっ][校:こう]に、いく。\nともだちと、[遊:あそ]ぶ。\n{朝:あさ}、早く起きる。\nえんぴつで、{字:じ}を書く。\n[本:ほん]をよむ。\n{先生:せんせい}に、あいさつ。');
       
       const [savedPrints, setSavedPrints] = useState([]);
@@ -238,7 +249,7 @@
       const [lineSpacing, setLineSpacing] = useState(1.6); 
       const [sizeScale, setSizeScale] = useState(1.0);
       const [namePosition, setNamePosition] = useState('right');
-      const [columnCount, setColumnCount] = useState(3); // デフォルト3段組
+      const [columnCount, setColumnCount] = useState(3);
 
       const textareaRef = useRef(null);
 
@@ -346,7 +357,7 @@
         window.print();
       };
 
-      // ★ 文章のパース処理（書き問題行と読み問題行を判別）
+      // 文章のパース処理
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
         if (line.trim() === '---') {
@@ -356,7 +367,6 @@
           return { type: 'normal-line', parts: [{ type: 'text', content: '' }] };
         }
 
-        // 行の中に { } があり、[ ] がない場合は「読み問題専用レイアウト」にする
         const isReadMode = line.includes('{') && line.includes('}');
         const isWriteMode = line.includes('[') && line.includes(']');
 
@@ -381,10 +391,9 @@
           return {
             type: 'read-line',
             parts: parts,
-            answer: answers.join('・') // 複数ある場合は中黒でつなぐ
+            answer: answers.join('・') 
           };
         } else {
-          // 書き問題、または両方混在している場合は従来のレイアウト
           const parts = [];
           const regex = /\[([^\]:]+)(?::([^\]]+))?\]|\{([^\}:]+)(?::([^\}]+))?\}/gu;
           let lastIndex = 0;
@@ -436,7 +445,7 @@
       // ページ分割の計算
       const A4_WIDTH_PX = 1122; 
       const PADDING_PX = 76;   
-      const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 100 : 0; 
+      const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 70 : 0; // 名前欄の幅も節約
       const AVAILABLE_WIDTH_PX = A4_WIDTH_PX - PADDING_PX - NAME_FIELD_PX;
 
       const pages = [];
@@ -459,7 +468,7 @@
             const hasMasu = lineData.parts.some(p => p.type === 'write' || p.type === 'inline-read');
             if (hasMasu) maxBaseWidthRem = 4.5;
           } else if (lineData.type === 'read-line') {
-            maxBaseWidthRem = 4.5; // 読み問題専用レイアウトも幅をとる
+            maxBaseWidthRem = 4.5; 
           }
         });
         const colWidthPx = (maxBaseWidthRem * sizeScale + lineSpacing) * 16; 
@@ -491,7 +500,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">読み問題フルレイアウト版</p>
+              <p className="text-sm mt-1 opacity-90">名前欄省スペース版</p>
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto">
@@ -516,11 +525,6 @@
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
-                  <div className="text-[0.7rem] text-bluegrey/80 mb-2 leading-relaxed font-sans bg-bluegrey/5 p-2 rounded">
-                    <div className="mb-1">📝 <b>[答え:ヒント]</b> → 書き問題（マス目）</div>
-                    <div>🗣️ <b>{'{漢字:よみ}'}</b> → 読み問題（行全体が大きなカッコになります）</div>
-                  </div>
-                  
                   <div className="flex gap-1 mb-2 font-sans flex-wrap">
                     <button 
                       onClick={() => insertAtCursor('[:]', 1)}
@@ -703,30 +707,22 @@
             {pages.map((pageChunks, pageIndex) => (
               <div key={pageIndex} className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
                 
+                {/* ★ 改修：Top配置の場合、タイトル行の右端に「横書き２段」で名前欄を表示 */}
                 {namePosition === 'top' && (
                   <div className="flex justify-between items-end border-b-2 border-bluegrey pb-1 mb-2 shrink-0 font-sans">
                     <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
                       {title || 'プリント'} 
                       {pages.length > 1 && <span className="text-lg ml-2 opacity-60">({pageIndex + 1}/{pages.length})</span>}
                     </div>
-                    
-                    <div className="flex gap-4">
-                      <div className="text-lg text-bluegrey flex items-end">
-                        <span className="mr-2">ねん</span>
-                        <span className="mr-2">くみ</span>
-                      </div>
-                      <div className="text-lg text-bluegrey flex items-end">
-                        <span>なまえ</span>
-                        <div className="w-48 border-b border-bluegrey ml-2"></div>
-                      </div>
-                    </div>
+                    <HorizontalNameField />
                   </div>
                 )}
 
                 <div className="flex-1 flex flex-row-reverse justify-start overflow-hidden">
                   
+                  {/* ★ 改修：Right配置の場合、右端（縦書き）の下部に配置 */}
                   {namePosition === 'right' && (
-                    <div className="shrink-0 flex flex-col justify-end pb-4 pl-3 pr-1">
+                    <div className="shrink-0 flex flex-col justify-end pb-4 pl-2 pr-1">
                       <VerticalNameField />
                     </div>
                   )}
@@ -751,7 +747,7 @@
                             paddingInlineEnd: rowIndex < chunk.length - 1 ? '0.5rem' : '0',
                             marginInlineEnd: rowIndex < chunk.length - 1 ? '0.5rem' : '0',
                           }}>
-                            {/* ★ 従来通りの行（テキストや書き問題） */}
+                            {/* 従来通りの行（テキストや書き問題） */}
                             {lineData.type === 'normal-line' && (
                               <p style={{ margin: 0, width: '100%' }}>
                                 {lineData.parts.map((part, index) => {
@@ -797,11 +793,10 @@
                               </p>
                             )}
 
-                            {/* ★ 新しい「読み問題専用フルレイアウト」の行 */}
+                            {/* 新しい「読み問題専用フルレイアウト」の行 */}
                             {lineData.type === 'read-line' && (
                               <div className="yomi-line-container">
                                 
-                                {/* 右側：小さな問題文と傍線付きの漢字 */}
                                 <div className="yomi-question-text">
                                   {lineData.parts.map((part, idx) => {
                                     if (part.type === 'text') {
@@ -812,7 +807,6 @@
                                   })}
                                 </div>
                                 
-                                {/* 左側：段の縦幅全体に広がるカッコと解答欄 */}
                                 <div className="yomi-bracket-column">
                                   <span className="yomi-bracket-large">（</span>
                                   <span className={`yomi-answer-large ${hideBlanks ? 'opacity-0' : 'opacity-100'} ${!hideBlanks ? 'text-terracotta' : ''}`}>
@@ -830,26 +824,19 @@
                     ))}
                   </div>
 
+                  {/* ★ 改修：Left配置の場合、左端（縦書き）の下部に配置 */}
                   {namePosition === 'left' && (
-                    <div className="shrink-0 flex flex-col justify-end pb-4 pr-3 pl-3 border-r border-dashed border-bluegrey/20">
+                    <div className="shrink-0 flex flex-col justify-end pb-4 pr-2 pl-2 border-r border-dashed border-bluegrey/20">
                       <VerticalNameField />
                     </div>
                   )}
 
                 </div>
 
+                {/* ★ 改修：Bottom配置の場合、左下（横書き）に配置 */}
                 {namePosition === 'bottom' && (
                   <div className="flex justify-start items-end border-t-2 border-bluegrey pt-2 mt-1 shrink-0 font-sans">
-                    <div className="flex gap-4">
-                      <div className="text-lg text-bluegrey flex items-end">
-                        <span className="mr-2">ねん</span>
-                        <span className="mr-2">くみ</span>
-                      </div>
-                      <div className="text-lg text-bluegrey flex items-end">
-                        <span>なまえ</span>
-                        <div className="w-48 border-b border-bluegrey ml-2"></div>
-                      </div>
-                    </div>
+                    <HorizontalNameField />
                   </div>
                 )}
 
