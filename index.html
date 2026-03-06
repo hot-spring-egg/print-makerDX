@@ -112,25 +112,63 @@
       transform: translateX(-2px);
     }
 
-    /* --- 読み問題用：カッコ付きルビ --- */
-    .yomi-ruby {
-      ruby-align: center;
+    /* --- 混在時の小さな読みカッコ --- */
+    .yomi-ruby { ruby-align: center; }
+    .yomi-rt { font-size: calc(1.8rem * var(--size-scale, 1)); color: #3D405B; transform: translateX(-4px); }
+    .yomi-bracket { color: #81B29A; font-size: calc(2.5rem * var(--size-scale, 1)); font-weight: normal; vertical-align: middle; }
+    .yomi-answer { vertical-align: middle; }
+
+    /* ★★★ 今回の目玉：読み問題専用のフルレイアウト ★★★ */
+    .yomi-line-container {
+      position: relative;
+      height: 100%;
+      width: 100%;
+      /* 左側に大きなカッコを配置するための余白を確保 */
+      padding-left: calc(3.5rem * var(--size-scale, 1));
     }
-    .yomi-rt {
-      font-size: calc(2.2rem * var(--size-scale, 1));
-      color: #3D405B;
-      letter-spacing: 0.1em;
-      transform: translateX(-4px); 
+
+    .yomi-question-text {
+      /* 問題文は小さく表示 */
+      font-size: calc(1.5rem * var(--size-scale, 1));
+      line-height: 1.5;
+      margin-top: 0.5rem; /* 上に少しだけ余白 */
     }
-    .yomi-bracket {
-      color: #81B29A;
+
+    .yomi-target-word {
+      /* 読みを答える対象の漢字（太字＋右側に傍線） */
+      font-weight: bold;
+      border-right: 2px solid #3D405B;
+      padding-right: 2px;
+      margin-right: 2px;
+    }
+
+    .yomi-bracket-column {
+      /* カッコの列を絶対配置で左端に固定し、上下いっぱいに広げる */
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: calc(3.2rem * var(--size-scale, 1));
+      display: flex;
+      flex-direction: row; /* 縦書き環境では「上から下へ」になる */
+      justify-content: space-between; /* 上端と下端にカッコを配置 */
+      align-items: center; /* 左右の中央揃え */
+    }
+
+    .yomi-bracket-large {
       font-size: calc(3.5rem * var(--size-scale, 1));
-      font-weight: normal;
-      vertical-align: middle;
+      color: #81B29A;
       font-family: "UD デジタル 教科書体 NP-R", "Klee One", serif;
     }
-    .yomi-answer {
-      vertical-align: middle;
+
+    .yomi-answer-large {
+      font-size: calc(1.8rem * var(--size-scale, 1));
+      letter-spacing: 0.2em;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-grow: 1; /* 上下のカッコの間のスペースをすべて使う */
     }
 
     /* スクロールバー */
@@ -139,34 +177,20 @@
     ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #3D405B; }
 
-    input[type=range] {
-      accent-color: #81B29A;
-    }
+    input[type=range] { accent-color: #81B29A; }
 
-    /* 印刷用の設定（A4 横向き・複数ページ対応） */
-    @page { 
-      size: A4 landscape; 
-      margin: 0; 
-    }
+    /* 印刷用の設定（A4横・余白を極限まで狭く設定） */
+    @page { size: A4 landscape; margin: 0; }
     @media print {
       body { background-color: white; }
       .noprint { display: none !important; }
       .print-area {
-        width: 297mm;  
-        height: 210mm; 
-        margin: 0;
-        padding: 15mm 20mm; 
-        box-shadow: none;
-        background: white;
-        page-break-after: always;
-        break-after: page;
+        width: 297mm; height: 210mm; margin: 0;
+        padding: 5mm 10mm; box-shadow: none; background: white;
+        page-break-after: always; break-after: page;
       }
     }
-    .print-area {
-      width: 297mm;
-      height: 210mm;
-      padding: 15mm 20mm;
-    }
+    .print-area { width: 297mm; height: 210mm; padding: 5mm 10mm; }
   </style>
 </head>
 <body>
@@ -187,7 +211,7 @@
     // 縦書き用の名前欄
     const VerticalNameField = () => (
       <div className="font-sans text-[1.1rem] text-bluegrey tracking-widest" style={{ writingMode: 'vertical-rl' }}>
-        <div className="ml-5">
+        <div className="ml-4">
           <span className="inline-block">ねん</span>
           <span className="inline-block mt-6">くみ</span>
         </div>
@@ -198,13 +222,13 @@
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v17';
+    const STORAGE_KEY = 'kakikata_prints_data_v19';
 
     const App = () => {
       const [title, setTitle] = useState('');
       
-      // 段組みの威力がわかりやすいサンプルテキスト
-      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n[学:がっ][校:こう]に、{行:い}きます。\n{友:とも}だちと、あそぶ。\n[本:ほん]を{読:よ}む。\nえんぴつで、[字:じ]を{書:か}く。\n[先:せん][生:せい]に、あいさつする。');
+      // 書き問題と読み問題が混ざったサンプルテキスト
+      const [text, setText] = useState('[学:がっ][校:こう]に、いく。\nともだちと、[遊:あそ]ぶ。\n{朝:あさ}、早く起きる。\nえんぴつで、{字:じ}を書く。\n[本:ほん]をよむ。\n{先生:せんせい}に、あいさつ。');
       
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
@@ -214,9 +238,7 @@
       const [lineSpacing, setLineSpacing] = useState(1.6); 
       const [sizeScale, setSizeScale] = useState(1.0);
       const [namePosition, setNamePosition] = useState('right');
-      
-      // ★ 追加：段組みの数（デフォルトは3段）
-      const [columnCount, setColumnCount] = useState(3);
+      const [columnCount, setColumnCount] = useState(3); // デフォルト3段組
 
       const textareaRef = useRef(null);
 
@@ -268,7 +290,7 @@
           lineSpacing: lineSpacing,
           sizeScale: sizeScale,
           namePosition: namePosition,
-          columnCount: columnCount, // 段組みも保存
+          columnCount: columnCount, 
           updatedAt: new Date().toLocaleString('ja-JP')
         };
 
@@ -312,7 +334,7 @@
 
       const handleNew = () => {
         setTitle('');
-        setText('あさ、{早:はや}く[起:お]きる。\n[学:がっ][校:こう]に、{行:い}きます。\n{友:とも}だちと、あそぶ。\n[本:ほん]を{読:よ}む。');
+        setText('[学:がっ][校:こう]に、いく。\n{朝:あさ}、早く起きる。');
         setLineSpacing(1.6);
         setSizeScale(1.0);
         setNamePosition('right');
@@ -324,47 +346,83 @@
         window.print();
       };
 
-      // 1行ごとの解析
+      // ★ 文章のパース処理（書き問題行と読み問題行を判別）
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
         if (line.trim() === '---') {
-          return [{ type: 'page-break' }];
+          return { type: 'page-break' };
+        }
+        if (line.trim() === '') {
+          return { type: 'normal-line', parts: [{ type: 'text', content: '' }] };
         }
 
-        const parts = [];
-        const regex = /\[([^\]:]+)(?::([^\]]+))?\]|\{([^\}:]+)(?::([^\}]+))?\}/gu;
-        let lastIndex = 0;
-        let match;
-        
-        while ((match = regex.exec(line)) !== null) {
-          if (match.index > lastIndex) {
-            parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
+        // 行の中に { } があり、[ ] がない場合は「読み問題専用レイアウト」にする
+        const isReadMode = line.includes('{') && line.includes('}');
+        const isWriteMode = line.includes('[') && line.includes(']');
+
+        if (isReadMode && !isWriteMode) {
+          const parts = [];
+          const regex = /\{([^\}:]+)(?::([^\}]+))?\}/gu;
+          let lastIndex = 0;
+          let match;
+          let answers = [];
+          
+          while ((match = regex.exec(line)) !== null) {
+            if (match.index > lastIndex) {
+              parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
+            }
+            parts.push({ type: 'read-target', content: match[1] });
+            answers.push(match[2] || '');
+            lastIndex = regex.lastIndex;
           }
-          if (match[1] !== undefined) {
-            parts.push({ type: 'write', char: match[1], ruby: match[2] || '' });
-          } else if (match[3] !== undefined) {
-            parts.push({ type: 'read', char: match[3], ruby: match[4] || '' });
+          if (lastIndex < line.length) {
+            parts.push({ type: 'text', content: line.substring(lastIndex) });
           }
-          lastIndex = regex.lastIndex;
+          return {
+            type: 'read-line',
+            parts: parts,
+            answer: answers.join('・') // 複数ある場合は中黒でつなぐ
+          };
+        } else {
+          // 書き問題、または両方混在している場合は従来のレイアウト
+          const parts = [];
+          const regex = /\[([^\]:]+)(?::([^\]]+))?\]|\{([^\}:]+)(?::([^\}]+))?\}/gu;
+          let lastIndex = 0;
+          let match;
+          
+          while ((match = regex.exec(line)) !== null) {
+            if (match.index > lastIndex) {
+              parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
+            }
+            if (match[1] !== undefined) {
+              parts.push({ type: 'write', char: match[1], ruby: match[2] || '' });
+            } else if (match[3] !== undefined) {
+              parts.push({ type: 'inline-read', char: match[3], ruby: match[4] || '' });
+            }
+            lastIndex = regex.lastIndex;
+          }
+          if (lastIndex < line.length) {
+            parts.push({ type: 'text', content: line.substring(lastIndex) });
+          }
+          return {
+            type: 'normal-line',
+            parts: parts
+          };
         }
-        if (lastIndex < line.length) {
-          parts.push({ type: 'text', content: line.substring(lastIndex) });
-        }
-        return parts;
       });
 
-      // ★ 段組みの処理：指定された段数（columnCount）ごとに行を束ねる
+      // 段組みの処理
       const chunks = [];
       let currentChunk = [];
-      parsedLines.forEach(lineCells => {
-        if (lineCells.length === 1 && lineCells[0].type === 'page-break') {
+      parsedLines.forEach(lineData => {
+        if (lineData.type === 'page-break') {
            if (currentChunk.length > 0) {
              chunks.push(currentChunk);
              currentChunk = [];
            }
            chunks.push('PAGE_BREAK');
         } else {
-           currentChunk.push(lineCells);
+           currentChunk.push(lineData);
            if (currentChunk.length === columnCount) {
              chunks.push(currentChunk);
              currentChunk = [];
@@ -375,10 +433,10 @@
         chunks.push(currentChunk);
       }
 
-      // ★ ページ分割の計算（チャンクの幅で計算する）
+      // ページ分割の計算
       const A4_WIDTH_PX = 1122; 
-      const PADDING_PX = 151;   
-      const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 120 : 0; 
+      const PADDING_PX = 76;   
+      const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 100 : 0; 
       const AVAILABLE_WIDTH_PX = A4_WIDTH_PX - PADDING_PX - NAME_FIELD_PX;
 
       const pages = [];
@@ -395,11 +453,14 @@
           return;
         }
 
-        // そのチャンク（列）の中で一番幅をとる行の幅を基準にする
-        let maxBaseWidthRem = 3.5; // 文字のみの基本幅
-        chunk.forEach(lineCells => {
-          const hasMasu = lineCells.some(p => p.type === 'write' || p.type === 'read');
-          if (hasMasu) maxBaseWidthRem = 4.5;
+        let maxBaseWidthRem = 3.5; 
+        chunk.forEach(lineData => {
+          if (lineData.type === 'normal-line') {
+            const hasMasu = lineData.parts.some(p => p.type === 'write' || p.type === 'inline-read');
+            if (hasMasu) maxBaseWidthRem = 4.5;
+          } else if (lineData.type === 'read-line') {
+            maxBaseWidthRem = 4.5; // 読み問題専用レイアウトも幅をとる
+          }
         });
         const colWidthPx = (maxBaseWidthRem * sizeScale + lineSpacing) * 16; 
 
@@ -430,7 +491,7 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">3段組・テスト特化版</p>
+              <p className="text-sm mt-1 opacity-90">読み問題フルレイアウト版</p>
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto">
@@ -455,10 +516,11 @@
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
-                  <p className="text-[0.7rem] text-bluegrey/70 mb-1 leading-tight">
-                    ※改行すると次の段（上→中→下）に進みます。<br/>※1行空けると、その段は空欄になります。
-                  </p>
-                  {/* 入力支援・改ページボタンエリア */}
+                  <div className="text-[0.7rem] text-bluegrey/80 mb-2 leading-relaxed font-sans bg-bluegrey/5 p-2 rounded">
+                    <div className="mb-1">📝 <b>[答え:ヒント]</b> → 書き問題（マス目）</div>
+                    <div>🗣️ <b>{'{漢字:よみ}'}</b> → 読み問題（行全体が大きなカッコになります）</div>
+                  </div>
+                  
                   <div className="flex gap-1 mb-2 font-sans flex-wrap">
                     <button 
                       onClick={() => insertAtCursor('[:]', 1)}
@@ -481,7 +543,6 @@
                     <button 
                       onClick={() => insertAtCursor('\n---\n', 5)}
                       className="flex-1 min-w-[70px] py-1.5 bg-terracotta hover:bg-[#c2654d] text-white text-xs font-bold rounded shadow transition-colors flex items-center justify-center gap-1"
-                      title="ここでプリントを次のページに分けます"
                     >
                       <ScissorsIcon /> 改ページ
                     </button>
@@ -497,10 +558,8 @@
                   ></textarea>
                 </div>
 
-                {/* デザイン・レイアウト設定 */}
                 <div className="bg-cream/50 p-3 rounded-lg border border-sage/20 space-y-3">
                   
-                  {/* ★ 段組みセレクトボックス */}
                   <div>
                     <label className="block text-xs font-bold text-bluegrey mb-1">
                       段組み（問題のならべ方）
@@ -645,7 +704,7 @@
               <div key={pageIndex} className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
                 
                 {namePosition === 'top' && (
-                  <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-4 shrink-0 font-sans">
+                  <div className="flex justify-between items-end border-b-2 border-bluegrey pb-1 mb-2 shrink-0 font-sans">
                     <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
                       {title || 'プリント'} 
                       {pages.length > 1 && <span className="text-lg ml-2 opacity-60">({pageIndex + 1}/{pages.length})</span>}
@@ -667,81 +726,104 @@
                 <div className="flex-1 flex flex-row-reverse justify-start overflow-hidden">
                   
                   {namePosition === 'right' && (
-                    <div className="shrink-0 flex flex-col justify-end pb-8 pl-4 pr-2">
+                    <div className="shrink-0 flex flex-col justify-end pb-4 pl-3 pr-1">
                       <VerticalNameField />
                     </div>
                   )}
 
-                  {/* ★ 段組み対応の本文エリア */}
+                  {/* 本文エリア */}
                   <div 
-                    className={`print-content flex-1 ${namePosition === 'top' ? 'pt-2' : 'pt-4'}`} 
+                    className={`print-content flex-1 ${namePosition === 'top' ? 'pt-1' : 'pt-2'}`} 
                     style={{ '--size-scale': sizeScale }}
                   >
                     {pageChunks.map((chunk, colIndex) => (
                       <div key={colIndex} style={{ 
                         display: 'flex', 
-                        flexDirection: 'row', /* 縦書き環境でのrowは上から下へ流れる */
+                        flexDirection: 'row', 
                         marginLeft: `${lineSpacing}rem` 
                       }}>
-                        {chunk.map((lineCells, rowIndex) => (
+                        {chunk.map((lineData, rowIndex) => (
                           <div key={rowIndex} style={{
-                            flex: 1, // 各段の高さを均等に分割する
+                            flex: 1,
                             display: 'flex',
                             justifyContent: 'flex-start',
-                            /* 最後の段以外には、下に薄い点線の区切りを引く */
                             borderInlineEnd: rowIndex < chunk.length - 1 ? '1px dashed rgba(129, 178, 154, 0.4)' : 'none',
-                            paddingInlineEnd: rowIndex < chunk.length - 1 ? '1rem' : '0',
-                            marginInlineEnd: rowIndex < chunk.length - 1 ? '1rem' : '0',
+                            paddingInlineEnd: rowIndex < chunk.length - 1 ? '0.5rem' : '0',
+                            marginInlineEnd: rowIndex < chunk.length - 1 ? '0.5rem' : '0',
                           }}>
-                            <p style={{ margin: 0, width: '100%' }}>
-                              {lineCells.map((part, index) => {
-                                if (part.type === 'text') {
-                                  return <span key={index}>{part.content}</span>;
-                                } 
-                                else if (part.type === 'write') {
-                                  const isSpace = part.char.trim() === '' || part.char === '　';
-                                  const isHidden = !isSpace && hideBlanks;
-                                  const textColor = !hideBlanks ? 'text-terracotta' : '';
+                            {/* ★ 従来通りの行（テキストや書き問題） */}
+                            {lineData.type === 'normal-line' && (
+                              <p style={{ margin: 0, width: '100%' }}>
+                                {lineData.parts.map((part, index) => {
+                                  if (part.type === 'text') {
+                                    return <span key={index}>{part.content}</span>;
+                                  } 
+                                  else if (part.type === 'write') {
+                                    const isSpace = part.char.trim() === '' || part.char === '　';
+                                    const isHidden = !isSpace && hideBlanks;
+                                    const textColor = !hideBlanks ? 'text-terracotta' : '';
 
-                                  const masu = (
-                                    <span className="masu-inline">
-                                      <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                        {part.char}
+                                    const masu = (
+                                      <span className="masu-inline">
+                                        <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                          {part.char}
+                                        </span>
                                       </span>
-                                    </span>
-                                  );
+                                    );
 
-                                  if (part.ruby) {
+                                    if (part.ruby) {
+                                      return <ruby key={index}>{masu}<rt>{part.ruby}</rt></ruby>;
+                                    } else {
+                                      return <React.Fragment key={index}>{masu}</React.Fragment>;
+                                    }
+                                  }
+                                  else if (part.type === 'inline-read') {
+                                    const isHidden = hideBlanks;
+                                    const textColor = !hideBlanks ? 'text-terracotta' : '';
                                     return (
-                                      <ruby key={index}>
-                                        {masu}
-                                        <rt>{part.ruby}</rt>
+                                      <ruby key={index} className="yomi-ruby">
+                                        <span>{part.char}</span>
+                                        <rt className="yomi-rt">
+                                          <span className="yomi-bracket">（</span>
+                                          <span className={`yomi-answer ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                            {part.ruby || '　　'}
+                                          </span>
+                                          <span className="yomi-bracket">）</span>
+                                        </rt>
                                       </ruby>
                                     );
-                                  } else {
-                                    return <React.Fragment key={index}>{masu}</React.Fragment>;
                                   }
-                                }
-                                else if (part.type === 'read') {
-                                  const isHidden = hideBlanks;
-                                  const textColor = !hideBlanks ? 'text-terracotta' : '';
-                                  const answerText = part.ruby || '　　'; 
-                                  
-                                  return (
-                                    <ruby key={index} className="yomi-ruby">
-                                      <span>{part.char}</span>
-                                      <rt className="yomi-rt">
-                                        <span className="yomi-bracket">（</span>
-                                        <span className={`yomi-answer ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                          {answerText}
-                                        </span>
-                                        <span className="yomi-bracket">）</span>
-                                      </rt>
-                                    </ruby>
-                                  );
-                                }
-                              })}
-                            </p>
+                                })}
+                              </p>
+                            )}
+
+                            {/* ★ 新しい「読み問題専用フルレイアウト」の行 */}
+                            {lineData.type === 'read-line' && (
+                              <div className="yomi-line-container">
+                                
+                                {/* 右側：小さな問題文と傍線付きの漢字 */}
+                                <div className="yomi-question-text">
+                                  {lineData.parts.map((part, idx) => {
+                                    if (part.type === 'text') {
+                                      return <span key={idx}>{part.content}</span>;
+                                    } else if (part.type === 'read-target') {
+                                      return <span key={idx} className="yomi-target-word">{part.content}</span>;
+                                    }
+                                  })}
+                                </div>
+                                
+                                {/* 左側：段の縦幅全体に広がるカッコと解答欄 */}
+                                <div className="yomi-bracket-column">
+                                  <span className="yomi-bracket-large">（</span>
+                                  <span className={`yomi-answer-large ${hideBlanks ? 'opacity-0' : 'opacity-100'} ${!hideBlanks ? 'text-terracotta' : ''}`}>
+                                    {lineData.answer || '　'}
+                                  </span>
+                                  <span className="yomi-bracket-large">）</span>
+                                </div>
+
+                              </div>
+                            )}
+
                           </div>
                         ))}
                       </div>
@@ -749,7 +831,7 @@
                   </div>
 
                   {namePosition === 'left' && (
-                    <div className="shrink-0 flex flex-col justify-end pb-8 pr-4 pl-4 border-r border-dashed border-bluegrey/20">
+                    <div className="shrink-0 flex flex-col justify-end pb-4 pr-3 pl-3 border-r border-dashed border-bluegrey/20">
                       <VerticalNameField />
                     </div>
                   )}
@@ -757,7 +839,7 @@
                 </div>
 
                 {namePosition === 'bottom' && (
-                  <div className="flex justify-start items-end border-t-2 border-bluegrey pt-4 mt-2 shrink-0 font-sans">
+                  <div className="flex justify-start items-end border-t-2 border-bluegrey pt-2 mt-1 shrink-0 font-sans">
                     <div className="flex gap-4">
                       <div className="text-lg text-bluegrey flex items-end">
                         <span className="mr-2">ねん</span>
