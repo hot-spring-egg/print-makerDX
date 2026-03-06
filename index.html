@@ -150,7 +150,6 @@
     @media print {
       body { background-color: white; }
       .noprint { display: none !important; }
-      /* 各ページごとの設定。ここで確実にページを区切ります */
       .print-area {
         width: 297mm;  
         height: 210mm; 
@@ -162,7 +161,6 @@
         break-after: page;
       }
     }
-    /* 画面表示用のA4横スタイル */
     .print-area {
       width: 297mm;
       height: 210mm;
@@ -199,11 +197,12 @@
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v15';
+    const STORAGE_KEY = 'kakikata_prints_data_v16';
 
     const App = () => {
       const [title, setTitle] = useState('');
-      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n---\n\n【2まいため】\n\n{友:とも}だちと、あそぶ。\n\n[　:（なまえ）]');
+      // ★ サンプルのテキストから「【2まいため】」という文字を削除しました
+      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n---\n\n{友:とも}だちと、あそぶ。\n\n[　:（なまえ）]');
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
@@ -305,6 +304,7 @@
 
       const handleNew = () => {
         setTitle('');
+        // 「新規」ボタンを押したときのテキストもスッキリさせました
         setText('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n[　:（なまえ）]');
         setLineSpacing(2.0);
         setSizeScale(1.0);
@@ -316,10 +316,10 @@
         window.print();
       };
 
-      // ★ 文章のパースと「ページ分割」の計算
+      // 文章のパースと「ページ分割」の計算
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
-        // --- と入力されていたら「改ページ」の合図にする
+        // `---` と入力されていたら「改ページ」の合図にする
         if (line.trim() === '---') {
           return [{ type: 'page-break' }];
         }
@@ -348,10 +348,9 @@
         return parts;
       });
 
-      // ★ 1ページに収まるように列を振り分けるロジック
-      const A4_WIDTH_PX = 1122; // A4横の概算ピクセル幅(96dpi)
-      const PADDING_PX = 151;   // 左右の余白合計
-      // 名前欄が左右にある場合は、その分の幅(約120px)を差し引く
+      // 1ページに収まるように列を振り分けるロジック
+      const A4_WIDTH_PX = 1122; 
+      const PADDING_PX = 151;   
       const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 120 : 0; 
       const AVAILABLE_WIDTH_PX = A4_WIDTH_PX - PADDING_PX - NAME_FIELD_PX;
 
@@ -370,13 +369,10 @@
           return;
         }
 
-        // この列の横幅を概算する（マスがあるか、文字だけかで幅が変わる）
         const hasMasu = lineCells.some(p => p.type === 'write' || p.type === 'read');
-        // 安全を見て、マスあり行は幅4.5rem、文字のみ行は幅3.5remとして計算
         const baseWidthRem = hasMasu ? 4.5 : 3.5; 
-        const colWidthPx = (baseWidthRem * sizeScale + lineSpacing) * 16; // 1rem = 16px換算
+        const colWidthPx = (baseWidthRem * sizeScale + lineSpacing) * 16; 
 
-        // ページ幅をオーバーしたら新しいページへ
         if (currentWidth + colWidthPx > AVAILABLE_WIDTH_PX && currentPage.length > 0) {
           pages.push(currentPage);
           currentPage = [lineCells];
@@ -386,11 +382,9 @@
           currentWidth += colWidthPx;
         }
       });
-      // 最後のページを追加
       if (currentPage.length > 0) {
         pages.push(currentPage);
       }
-      // もし文字が空っぽの場合は、白紙の1ページを用意する
       if (pages.length === 0) {
         pages.push([]);
       }
@@ -596,10 +590,8 @@
           </div>
 
           {/* 右側：プレビュー＆印刷エリア */}
-          {/* gap-8 を入れて、複数ページが縦に並んだ時に隙間が見えるようにしています */}
           <div className="w-full md:w-2/3 lg:w-3/4 bg-bluegrey/10 overflow-auto flex flex-col items-center p-4 md:p-8 noprint-bg gap-8">
             
-            {/* ★ ページ数分だけプリントの枠をループして描画します */}
             {pages.map((pageLines, pageIndex) => (
               <div key={pageIndex} className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
                 
@@ -607,7 +599,6 @@
                   <div className="flex justify-between items-end border-b-2 border-bluegrey pb-2 mb-4 shrink-0 font-sans">
                     <div className="text-2xl font-bold text-bluegrey tracking-widest pl-2">
                       {title || 'プリント'} 
-                      {/* 複数ページある場合は「(1/2)」のようにページ番号を出します */}
                       {pages.length > 1 && <span className="text-lg ml-2 opacity-60">({pageIndex + 1}/{pages.length})</span>}
                     </div>
                     
