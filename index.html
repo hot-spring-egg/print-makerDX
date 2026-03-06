@@ -55,6 +55,7 @@
       margin-top: 0;
       margin-bottom: 0;
       min-height: 1em;
+      width: 100%;
     }
 
     /* --- 書き問題用：穴埋めのマス目 --- */
@@ -132,7 +133,7 @@
       vertical-align: middle;
     }
 
-    /* スクロールバーのカスタマイズ */
+    /* スクロールバー */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #F4F1DE; }
     ::-webkit-scrollbar-thumb { background: #81B29A; border-radius: 4px; }
@@ -197,20 +198,25 @@
       </div>
     );
 
-    const STORAGE_KEY = 'kakikata_prints_data_v16';
+    const STORAGE_KEY = 'kakikata_prints_data_v17';
 
     const App = () => {
       const [title, setTitle] = useState('');
-      // ★ サンプルのテキストから「【2まいため】」という文字を削除しました
-      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n---\n\n{友:とも}だちと、あそぶ。\n\n[　:（なまえ）]');
+      
+      // 段組みの威力がわかりやすいサンプルテキスト
+      const [text, setText] = useState('あさ、{早:はや}く[起:お]きる。\n[学:がっ][校:こう]に、{行:い}きます。\n{友:とも}だちと、あそぶ。\n[本:ほん]を{読:よ}む。\nえんぴつで、[字:じ]を{書:か}く。\n[先:せん][生:せい]に、あいさつする。');
+      
       const [savedPrints, setSavedPrints] = useState([]);
       const [currentId, setCurrentId] = useState(null);
       const [notification, setNotification] = useState('');
       
       const [hideBlanks, setHideBlanks] = useState(true);
-      const [lineSpacing, setLineSpacing] = useState(2.0); 
+      const [lineSpacing, setLineSpacing] = useState(1.6); 
       const [sizeScale, setSizeScale] = useState(1.0);
-      const [namePosition, setNamePosition] = useState('top');
+      const [namePosition, setNamePosition] = useState('right');
+      
+      // ★ 追加：段組みの数（デフォルトは3段）
+      const [columnCount, setColumnCount] = useState(3);
 
       const textareaRef = useRef(null);
 
@@ -262,6 +268,7 @@
           lineSpacing: lineSpacing,
           sizeScale: sizeScale,
           namePosition: namePosition,
+          columnCount: columnCount, // 段組みも保存
           updatedAt: new Date().toLocaleString('ja-JP')
         };
 
@@ -281,9 +288,10 @@
       const handleLoad = (print) => {
         setTitle(print.title);
         setText(print.text);
-        setLineSpacing(print.lineSpacing || 2.0);
+        setLineSpacing(print.lineSpacing || 1.6);
         setSizeScale(print.sizeScale || 1.0);
-        setNamePosition(print.namePosition || 'top');
+        setNamePosition(print.namePosition || 'right');
+        setColumnCount(print.columnCount || 3);
         setCurrentId(print.id);
         setNotification(`📂 「${print.title}」をひらきました。`);
       };
@@ -304,11 +312,11 @@
 
       const handleNew = () => {
         setTitle('');
-        // 「新規」ボタンを押したときのテキストもスッキリさせました
-        setText('あさ、{早:はや}く[起:お]きる。\n\n[学:がっ][校:こう]に、{行:い}きます。\n\n[　:（なまえ）]');
-        setLineSpacing(2.0);
+        setText('あさ、{早:はや}く[起:お]きる。\n[学:がっ][校:こう]に、{行:い}きます。\n{友:とも}だちと、あそぶ。\n[本:ほん]を{読:よ}む。');
+        setLineSpacing(1.6);
         setSizeScale(1.0);
-        setNamePosition('top');
+        setNamePosition('right');
+        setColumnCount(3);
         setCurrentId(null);
       };
 
@@ -316,10 +324,9 @@
         window.print();
       };
 
-      // 文章のパースと「ページ分割」の計算
+      // 1行ごとの解析
       const lines = text.split('\n');
       const parsedLines = lines.map(line => {
-        // `---` と入力されていたら「改ページ」の合図にする
         if (line.trim() === '---') {
           return [{ type: 'page-break' }];
         }
@@ -333,13 +340,11 @@
           if (match.index > lastIndex) {
             parts.push({ type: 'text', content: line.substring(lastIndex, match.index) });
           }
-          
           if (match[1] !== undefined) {
             parts.push({ type: 'write', char: match[1], ruby: match[2] || '' });
           } else if (match[3] !== undefined) {
             parts.push({ type: 'read', char: match[3], ruby: match[4] || '' });
           }
-          
           lastIndex = regex.lastIndex;
         }
         if (lastIndex < line.length) {
@@ -348,7 +353,29 @@
         return parts;
       });
 
-      // 1ページに収まるように列を振り分けるロジック
+      // ★ 段組みの処理：指定された段数（columnCount）ごとに行を束ねる
+      const chunks = [];
+      let currentChunk = [];
+      parsedLines.forEach(lineCells => {
+        if (lineCells.length === 1 && lineCells[0].type === 'page-break') {
+           if (currentChunk.length > 0) {
+             chunks.push(currentChunk);
+             currentChunk = [];
+           }
+           chunks.push('PAGE_BREAK');
+        } else {
+           currentChunk.push(lineCells);
+           if (currentChunk.length === columnCount) {
+             chunks.push(currentChunk);
+             currentChunk = [];
+           }
+        }
+      });
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+
+      // ★ ページ分割の計算（チャンクの幅で計算する）
       const A4_WIDTH_PX = 1122; 
       const PADDING_PX = 151;   
       const NAME_FIELD_PX = ['right', 'left'].includes(namePosition) ? 120 : 0; 
@@ -358,9 +385,8 @@
       let currentPage = [];
       let currentWidth = 0;
 
-      parsedLines.forEach(lineCells => {
-        // 手動での改ページ指示があった場合
-        if (lineCells.length === 1 && lineCells[0].type === 'page-break') {
+      chunks.forEach(chunk => {
+        if (chunk === 'PAGE_BREAK') {
           if (currentPage.length > 0) {
             pages.push(currentPage);
             currentPage = [];
@@ -369,16 +395,20 @@
           return;
         }
 
-        const hasMasu = lineCells.some(p => p.type === 'write' || p.type === 'read');
-        const baseWidthRem = hasMasu ? 4.5 : 3.5; 
-        const colWidthPx = (baseWidthRem * sizeScale + lineSpacing) * 16; 
+        // そのチャンク（列）の中で一番幅をとる行の幅を基準にする
+        let maxBaseWidthRem = 3.5; // 文字のみの基本幅
+        chunk.forEach(lineCells => {
+          const hasMasu = lineCells.some(p => p.type === 'write' || p.type === 'read');
+          if (hasMasu) maxBaseWidthRem = 4.5;
+        });
+        const colWidthPx = (maxBaseWidthRem * sizeScale + lineSpacing) * 16; 
 
         if (currentWidth + colWidthPx > AVAILABLE_WIDTH_PX && currentPage.length > 0) {
           pages.push(currentPage);
-          currentPage = [lineCells];
+          currentPage = [chunk];
           currentWidth = colWidthPx;
         } else {
-          currentPage.push(lineCells);
+          currentPage.push(chunk);
           currentWidth += colWidthPx;
         }
       });
@@ -400,10 +430,10 @@
                 <span className="bg-cream text-sage rounded-full w-8 h-8 flex items-center justify-center text-lg">🎒</span>
                 プリントメーカーDX
               </h1>
-              <p className="text-sm mt-1 opacity-90">複数ページ自動対応版</p>
+              <p className="text-sm mt-1 opacity-90">3段組・テスト特化版</p>
             </div>
 
-            <div className="p-5 flex-1 overflow-y-auto">
+            <div className="p-4 flex-1 overflow-y-auto">
               
               {notification && (
                 <div className="mb-4 p-3 bg-mustard/20 text-bluegrey rounded-lg text-sm font-bold border-l-4 border-mustard flex items-center">
@@ -425,7 +455,9 @@
 
                 <div>
                   <label className="block text-sm font-bold text-bluegrey mb-1">練習する文字・問題</label>
-                  
+                  <p className="text-[0.7rem] text-bluegrey/70 mb-1 leading-tight">
+                    ※改行すると次の段（上→中→下）に進みます。<br/>※1行空けると、その段は空欄になります。
+                  </p>
                   {/* 入力支援・改ページボタンエリア */}
                   <div className="flex gap-1 mb-2 font-sans flex-wrap">
                     <button 
@@ -466,27 +498,44 @@
                 </div>
 
                 {/* デザイン・レイアウト設定 */}
-                <div className="bg-cream/50 p-4 rounded-lg border border-sage/20 space-y-4">
+                <div className="bg-cream/50 p-3 rounded-lg border border-sage/20 space-y-3">
                   
+                  {/* ★ 段組みセレクトボックス */}
                   <div>
-                    <label className="block text-xs font-bold text-bluegrey mb-2">
+                    <label className="block text-xs font-bold text-bluegrey mb-1">
+                      段組み（問題のならべ方）
+                    </label>
+                    <select 
+                      value={columnCount}
+                      onChange={(e) => setColumnCount(Number(e.target.value))}
+                      className="w-full border-2 border-sage/30 rounded-lg p-1.5 text-sm bg-white focus:outline-none focus:border-sage text-bluegrey font-bold cursor-pointer"
+                    >
+                      <option value={1}>1段（上から下まで）</option>
+                      <option value={2}>2段組（上・下）</option>
+                      <option value={3}>3段組（上・中・下）</option>
+                      <option value={4}>4段組</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-bluegrey mb-1">
                       なまえ欄の配置
                     </label>
                     <select 
                       value={namePosition}
                       onChange={(e) => setNamePosition(e.target.value)}
-                      className="w-full border-2 border-sage/30 rounded-lg p-2 text-sm bg-white focus:outline-none focus:border-sage text-bluegrey font-bold cursor-pointer"
+                      className="w-full border-2 border-sage/30 rounded-lg p-1.5 text-sm bg-white focus:outline-none focus:border-sage text-bluegrey font-bold cursor-pointer"
                     >
+                      <option value="right">右 （縦書き・下部）※おすすめ</option>
+                      <option value="left">左 （縦書き・下部）</option>
                       <option value="top">上 （横書き・右端）</option>
                       <option value="bottom">下 （横書き・左端）</option>
-                      <option value="right">右 （縦書き・下部）</option>
-                      <option value="left">左 （縦書き・下部）</option>
                       <option value="none">なし （表示しない）</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-bluegrey mb-2">
+                    <label className="block text-xs font-bold text-bluegrey mb-1">
                       文字とマスの大きさ
                     </label>
                     <div className="flex items-center gap-3">
@@ -496,26 +545,26 @@
                         min="0.6" max="1.6" step="0.1"
                         value={sizeScale}
                         onChange={(e) => setSizeScale(parseFloat(e.target.value))}
-                        className="flex-1 cursor-pointer"
+                        className="flex-1 cursor-pointer h-2"
                       />
                       <span className="text-xs text-bluegrey/70 font-bold">大</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-bluegrey mb-2">
-                      問題と問題のすき間
+                    <label className="block text-xs font-bold text-bluegrey mb-1">
+                      列と列のすき間
                     </label>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-bluegrey/70 font-bold">せまい</span>
+                      <span className="text-xs text-bluegrey/70 font-bold">狭</span>
                       <input 
                         type="range" 
-                        min="1.2" max="6.0" step="0.2"
+                        min="0.5" max="6.0" step="0.2"
                         value={lineSpacing}
                         onChange={(e) => setLineSpacing(parseFloat(e.target.value))}
-                        className="flex-1 cursor-pointer"
+                        className="flex-1 cursor-pointer h-2"
                       />
-                      <span className="text-xs text-bluegrey/70 font-bold">ひろい</span>
+                      <span className="text-xs text-bluegrey/70 font-bold">広</span>
                     </div>
                   </div>
                 </div>
@@ -529,23 +578,23 @@
                   </button>
                 </div>
 
-                <div className="flex gap-2 pt-1 font-sans">
+                <div className="flex gap-2 font-sans pb-4">
                   <button 
                     onClick={handleSave}
-                    className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-sage hover:bg-[#689880] text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
                   >
                     <SaveIcon /> 保存
                   </button>
                   <button 
                     onClick={handlePrint}
-                    className="flex-1 bg-bluegrey hover:bg-[#2c2f45] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-bluegrey hover:bg-[#2c2f45] text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
                   >
                     <PrinterIcon /> 印刷
                   </button>
                 </div>
               </div>
 
-              <div className="my-6 border-b-2 border-dashed border-sage/30"></div>
+              <div className="border-b-2 border-dashed border-sage/30 mb-4"></div>
 
               <div className="font-sans pb-8">
                 <div className="flex items-center justify-between mb-3">
@@ -560,7 +609,7 @@
                   </button>
                 </div>
 
-                <div className="space-y-3 bg-cream/50 p-3 rounded-xl border border-sage/20">
+                <div className="space-y-2 bg-cream/50 p-2 rounded-xl border border-sage/20">
                   {savedPrints.length === 0 ? (
                     <p className="text-sm text-center text-bluegrey/60 py-4">保存されたプリントはありません</p>
                   ) : (
@@ -568,10 +617,10 @@
                       <div 
                         key={print.id} 
                         onClick={() => handleLoad(print)}
-                        className={`group relative p-3 rounded-lg cursor-pointer transition-all shadow-sm border-l-4 ${currentId === print.id ? 'bg-white border-sage shadow-md' : 'bg-white/60 border-transparent hover:bg-white hover:border-sage/50'}`}
+                        className={`group relative p-2.5 rounded-lg cursor-pointer transition-all shadow-sm border-l-4 ${currentId === print.id ? 'bg-white border-sage shadow-md' : 'bg-white/60 border-transparent hover:bg-white hover:border-sage/50'}`}
                       >
-                        <h3 className="font-bold text-bluegrey truncate pr-6">{print.title}</h3>
-                        <p className="text-xs text-bluegrey/60 mt-1">{print.updatedAt}</p>
+                        <h3 className="font-bold text-bluegrey truncate pr-6 text-sm">{print.title}</h3>
+                        <p className="text-[10px] text-bluegrey/60 mt-1">{print.updatedAt}</p>
                         
                         <button 
                           onClick={(e) => handleDelete(e, print.id)}
@@ -592,7 +641,7 @@
           {/* 右側：プレビュー＆印刷エリア */}
           <div className="w-full md:w-2/3 lg:w-3/4 bg-bluegrey/10 overflow-auto flex flex-col items-center p-4 md:p-8 noprint-bg gap-8">
             
-            {pages.map((pageLines, pageIndex) => (
+            {pages.map((pageChunks, pageIndex) => (
               <div key={pageIndex} className="print-area bg-white shadow-2xl rounded-sm flex flex-col relative overflow-hidden shrink-0">
                 
                 {namePosition === 'top' && (
@@ -623,61 +672,79 @@
                     </div>
                   )}
 
-                  {/* 縦書き本文エリア */}
+                  {/* ★ 段組み対応の本文エリア */}
                   <div 
                     className={`print-content flex-1 ${namePosition === 'top' ? 'pt-2' : 'pt-4'}`} 
                     style={{ '--size-scale': sizeScale }}
                   >
-                    {pageLines.map((parts, colIndex) => (
-                      <p key={colIndex} style={{ marginLeft: `${lineSpacing}rem` }}>
-                        {parts.map((part, index) => {
-                          if (part.type === 'text') {
-                            return <span key={index}>{part.content}</span>;
-                          } 
-                          else if (part.type === 'write') {
-                            const isSpace = part.char.trim() === '' || part.char === '　';
-                            const isHidden = !isSpace && hideBlanks;
-                            const textColor = !hideBlanks ? 'text-terracotta' : '';
+                    {pageChunks.map((chunk, colIndex) => (
+                      <div key={colIndex} style={{ 
+                        display: 'flex', 
+                        flexDirection: 'row', /* 縦書き環境でのrowは上から下へ流れる */
+                        marginLeft: `${lineSpacing}rem` 
+                      }}>
+                        {chunk.map((lineCells, rowIndex) => (
+                          <div key={rowIndex} style={{
+                            flex: 1, // 各段の高さを均等に分割する
+                            display: 'flex',
+                            justifyContent: 'flex-start',
+                            /* 最後の段以外には、下に薄い点線の区切りを引く */
+                            borderInlineEnd: rowIndex < chunk.length - 1 ? '1px dashed rgba(129, 178, 154, 0.4)' : 'none',
+                            paddingInlineEnd: rowIndex < chunk.length - 1 ? '1rem' : '0',
+                            marginInlineEnd: rowIndex < chunk.length - 1 ? '1rem' : '0',
+                          }}>
+                            <p style={{ margin: 0, width: '100%' }}>
+                              {lineCells.map((part, index) => {
+                                if (part.type === 'text') {
+                                  return <span key={index}>{part.content}</span>;
+                                } 
+                                else if (part.type === 'write') {
+                                  const isSpace = part.char.trim() === '' || part.char === '　';
+                                  const isHidden = !isSpace && hideBlanks;
+                                  const textColor = !hideBlanks ? 'text-terracotta' : '';
 
-                            const masu = (
-                              <span className="masu-inline">
-                                <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                  {part.char}
-                                </span>
-                              </span>
-                            );
+                                  const masu = (
+                                    <span className="masu-inline">
+                                      <span className={`masu-char ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                        {part.char}
+                                      </span>
+                                    </span>
+                                  );
 
-                            if (part.ruby) {
-                              return (
-                                <ruby key={index}>
-                                  {masu}
-                                  <rt>{part.ruby}</rt>
-                                </ruby>
-                              );
-                            } else {
-                              return <React.Fragment key={index}>{masu}</React.Fragment>;
-                            }
-                          }
-                          else if (part.type === 'read') {
-                            const isHidden = hideBlanks;
-                            const textColor = !hideBlanks ? 'text-terracotta' : '';
-                            const answerText = part.ruby || '　　'; 
-                            
-                            return (
-                              <ruby key={index} className="yomi-ruby">
-                                <span>{part.char}</span>
-                                <rt className="yomi-rt">
-                                  <span className="yomi-bracket">（</span>
-                                  <span className={`yomi-answer ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
-                                    {answerText}
-                                  </span>
-                                  <span className="yomi-bracket">）</span>
-                                </rt>
-                              </ruby>
-                            );
-                          }
-                        })}
-                      </p>
+                                  if (part.ruby) {
+                                    return (
+                                      <ruby key={index}>
+                                        {masu}
+                                        <rt>{part.ruby}</rt>
+                                      </ruby>
+                                    );
+                                  } else {
+                                    return <React.Fragment key={index}>{masu}</React.Fragment>;
+                                  }
+                                }
+                                else if (part.type === 'read') {
+                                  const isHidden = hideBlanks;
+                                  const textColor = !hideBlanks ? 'text-terracotta' : '';
+                                  const answerText = part.ruby || '　　'; 
+                                  
+                                  return (
+                                    <ruby key={index} className="yomi-ruby">
+                                      <span>{part.char}</span>
+                                      <rt className="yomi-rt">
+                                        <span className="yomi-bracket">（</span>
+                                        <span className={`yomi-answer ${isHidden ? 'opacity-0' : 'opacity-100'} ${textColor}`}>
+                                          {answerText}
+                                        </span>
+                                        <span className="yomi-bracket">）</span>
+                                      </rt>
+                                    </ruby>
+                                  );
+                                }
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     ))}
                   </div>
 
